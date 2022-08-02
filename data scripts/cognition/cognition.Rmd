@@ -1,0 +1,72 @@
+---
+title: "Untitled"
+author: "Kate Tran"
+date: "4/14/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+source("../../config.R")
+source("../../utility_fun.R")
+```
+
+# ABCD Youth Emotional Stroop Task
+
+```{r}
+yest01 <- load_instrument("abcd_yest01", abcd_files_path) #1_year_follow_up_y_arm_1
+
+# a task that allows researchers to concurrently measure processing speed/attentional
+# vigilance (i.e., performance on congruent trials), inhibitory control (i.e., Stroop interference effect), and
+# emotional information processing (i.e., difference in performance on trials with happy as compared to angry
+# distracting faces). 
+
+yest01_rmoutliers <- yest01 %>% 
+  
+  # remove kids with wrong events
+  filter(is.na(strp_scr_script_wrong_event)) %>% 
+  # remove unneeded columns
+  dplyr::select(src_subject_id, sex, interview_age, ends_with(c("_all", "congr", "_eq", "_equal", "_acc", "_rt"))) %>% 
+  # # stroop test rt < 200 or > 2000 are 0s
+  mutate(across(contains("strp_") & contains("rt"),
+                ~case_when(.x < 200 | .x > 2000 ~ NA_real_,
+                           TRUE ~ as.numeric(.x))))
+
+# number of outliers
+yest01 %>% filter(is.na(strp_scr_script_wrong_event)) %>%
+  dplyr::select(src_subject_id, contains("strp_") & contains("rt")) %>%
+  purrr::map(., ~ table(.x < 200))
+
+yest01 %>% filter(is.na(strp_scr_script_wrong_event)) %>%
+  dplyr::select(src_subject_id, contains("strp_") & contains("rt")) %>%
+  purrr::map(., ~ table(.x > 2000))
+```
+
+# ABCD Youth Wills Problem Solving Scale
+
+```{r}
+ywpss01 <- load_instrument("abcd_ywpss01", abcd_files_path) %>% dplyr::select(-interview_date)
+```
+
+# Prosocial Behavior Scale
+
+```{r}
+# sdq01 <- load_instrument("sdq01", abcd_files_path) # Not have much data
+```
+
+```{r}
+# merge
+cognition <- yest01_rmoutliers %>% full_join(ywpss01)
+```
+
+```{r}
+write.csv(file = "../../outputs/cognition.csv", x = cognition, row.names = F, na = "")
+```
+
