@@ -75,9 +75,9 @@ demographics_set[, table(race_mixed, useNA = "if")]
 demographics_set[, grep("^demo_race_a_p___",colnames(demographics_set), value = T) := NULL]
 
 
-demographics_set[,non_hispanic_black := 0]
+demographics_set[!is.na(ethnicity_hisp), non_hispanic_black := 0]
 demographics_set[ethnicity_hisp == 0 & race_black == 1, non_hispanic_black := 1]
-demographics_set[,non_hispanic_white := 0]
+demographics_set[!is.na(ethnicity_hisp) ,non_hispanic_white := 0]
 demographics_set[ethnicity_hisp == 0 & race_white == 1, non_hispanic_white := 1]
 
 
@@ -153,7 +153,7 @@ selected_features = c("src_subject_id", "sex", "age", "gender","eventname", "int
                       "separated_or_divorced","parents_married" ,"parents_avg_edu", "household_income",
                       "born_in_usa", "sex_br")
 
-write.csv(file = "outputs/demographics_baseline.csv", x = demographics_set[,..selected_features], row.names=F, na = "")
+write.csv(file = "data/demographics_baseline.csv", x = demographics_set[,..selected_features], row.names=F, na = "")
 
 
 

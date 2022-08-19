@@ -34,6 +34,7 @@ fhxssp = fhxssp[,grepl("^(src|sex|inter|event)|momdad", colnames(fhxssp))]
 
 
 fh_set = merge(fh_dataset,fhxssp )
+fh_set_wide = get_wide_data(fh_set)
 
-write.csv(file = "outputs/family_history.csv",x = fh_set, row.names = F, na = "")
+write.csv(file = "data/family_history.csv",x = fh_set_wide, row.names = F, na = "")
 

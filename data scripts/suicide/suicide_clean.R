@@ -43,6 +43,6 @@ ksad_y$nssi_y <- (ksad_y$nssi_current_y == 1 | ksad_y$nssi_past_y == 1)*1
 suicide_set <- ksad_y[,grepl("src|inter|event|sex|SI|SA|sui|nssi", colnames(ksad_y))]
 
 
-write.csv(file = "outputs/suicide_long.csv", x = suicide_set, row.names = F, na = "")
+write.csv(file = "data/suicide_long.csv", x = suicide_set, row.names = F, na = "")
 
 
