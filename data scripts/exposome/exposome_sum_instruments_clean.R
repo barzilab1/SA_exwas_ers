@@ -20,10 +20,11 @@ sscey01_wide = get_wide_data(sscey01)
 sscep = load_instrument("abcd_sscep01",abcd_files_path)
 
 #remove nt (Number Total Questions) and nm (Number Missing Answers) and na (Number Answered)
-sscep = sscep[,!grepl("_(nm|nt|na|answered|pr)$",colnames(sscep))]
+sscep = sscep[,!grepl("^psb|_(nm|nt|na|answered|pr)$",colnames(sscep))]
 
 describe(sscep)
 sscep_wide = get_wide_data(sscep)
+sscep_wide = sscep_wide[,grep("src|sex|nsc|macv|meim", colnames(sscep_wide))]
 
 
 ########### Sum Scores Mobil Tech Youth ########### 
@@ -31,12 +32,6 @@ ssmty = load_instrument("abcd_ssmty01",abcd_files_path)
 ssmty = ssmty[, !grepl("_(nm|nt)$", colnames(ssmty))]
 summary(ssmty)
 ssmty_wide = get_wide_data(ssmty)
-
-
-########### Parent Adult Self Report Scores Aseba (ASR) ########### 
-asrs = load_instrument("abcd_asrs01",abcd_files_path)
-asrs = asrs[, grepl("src|event|interview|sex|_t$", colnames(asrs))]
-asrs_wide = get_wide_data(asrs)
 
 
 ########### Summary Scores Developmental History ########### 
@@ -115,21 +110,23 @@ mhp02[mhp02$eventname == "baseline_year_1_arm_1", grep("ple", colnames(mhp02))] 
 mhp02_wide = get_wide_data(mhp02)
 
 
+################### Summary Scores Substance Use ################### 
+suss = load_instrument("abcd_suss01", abcd_files_path)
+suss = suss[,!grepl("_(nt|nm)((_l)?)$",colnames(suss))]
+
+describe(suss)
+suss_wide = get_wide_data(suss)
+
+
 
 
 
 ########### merge all tables ###########
-exposome_set = merge(sscey01_wide, sscep_wide, all = T)
-exposome_set = merge(exposome_set, ssmty_wide, all = T)
-exposome_set = merge(exposome_set, asrs_wide, all = T)
-exposome_set = merge(exposome_set, devhxss_wide, all = T)
-exposome_set = merge(exposome_set, tbi_wide, all = T)
-exposome_set = merge(exposome_set, sssa_wide, all = T)
-exposome_set = merge(exposome_set, ssphp01_wide, all = T)
-exposome_set = merge(exposome_set, mhy_wide, all = T)
-exposome_set = merge(exposome_set, mhp02_wide, all = T)
+exposome_set = merge(sscep_wide, ssmty_wide ,all = T)
+exposome_set = merge(exposome_set, tbi_wide ,all = T)
+exposome_set = merge(exposome_set, ssphp01_wide ,all = T)
+
+
 
 write.csv(file = "data/exposome_sum_set.csv",x = exposome_set, row.names = F, na = "")
 
-
-#ssbpmtf

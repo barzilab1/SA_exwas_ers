@@ -1,4 +1,5 @@
 library(psych)
+library(plyr)
 
 source("config.R")
 source("utility_fun.R")
@@ -56,29 +57,9 @@ pnsc01_wide = get_wide_data(pnsc01)
 ########### Youth Life Events ###########
 yle01 = load_instrument("abcd_yle01",abcd_files_path)
 yle01$ple_admin = NULL
-yle01 = yle01[,!grepl("_fu(2)?_y$", colnames(yle01))]
+yle01 = yle01[,!grepl("_past_|_fu(2)?_y$", colnames(yle01))]
 
 yle01[yle01 ==6 | yle01 ==7 ] = NA
-
-### copy the 0 from ever to the last year items
-# fix cols names
-col_index = grep("^le", colnames(yle01))
-colnames(yle01)[col_index] = paste0("p",colnames(yle01)[col_index] )
-
-col_index = grep("_y_", colnames(yle01))
-colnames(yle01)[col_index] = sub("y_","",colnames(yle01)[col_index])
-
-names_last_year = grep("_past_yr_y$", colnames(yle01), value = T)
-for (colname_last_year in names_last_year) {
-  name_ever = sub("past_yr_","",colname_last_year)
-  name_new = paste0(colname_last_year, "_all")
-  # clean the past year feature (was asked only if ever == 1)
-  yle01[,colname_last_year] = ifelse(yle01[,name_ever] == 0 | is.na(yle01[,name_ever]), NA, yle01[,colname_last_year])
-  # create the new feature
-  yle01[,name_new] = ifelse( is.na(yle01[,colname_last_year]) & yle01[,name_ever] == 0, 0 ,yle01[,colname_last_year])
-}
-
-yle01[,names_last_year] = NULL
 
 describe(yle01)
 yle01_wide = get_wide_data(yle01)
@@ -91,28 +72,9 @@ ple = ple[,!grepl("_fu(2)?_p$", colnames(ple))]
 
 ple[ple ==6 | ple ==7 ] = NA
 
-### copy the 0 from ever to the last year items
-# fix cols names
-col_index = which(colnames(ple) == "ple_injur_p_p")
-colnames(ple)[col_index] = "ple_injured_past_yr_p"
-
-col_index = grep("_past$", colnames(ple))
-colnames(ple)[col_index] = sub("_p_past","_past_yr_p",colnames(ple)[col_index])
-
-names_last_year = grep("_past_yr_p$", colnames(ple), value = T)
-for (colname_last_year in names_last_year) {
-  name_ever = sub("past_yr_","",colname_last_year)
-  name_new = paste0(colname_last_year, "_all")
-  # clean the past year feature (was asked only if ever == 1)
-  ple[,colname_last_year] = ifelse(ple[,name_ever] == 0 | is.na(ple[,name_ever]), NA, ple[,colname_last_year])
-  # create the new feature
-  ple[,name_new] = ifelse( is.na(ple[,colname_last_year]) & ple[,name_ever] == 0, 0 ,ple[,colname_last_year])
-}
-
-ple[,names_last_year] = NULL
-
 View(describe(ple))
 ple_wide = get_wide_data(ple)
+
 
 
 ########### Parent Community Risk and Protective Factors ###########
@@ -145,12 +107,14 @@ dhx01$accult_select_language = NULL
 
 #remove empty columns 
 dhx01 = dhx01[,colSums(is.na(dhx01)) != nrow(dhx01)]
+dhx01$devhx_1_p = NULL
 
 #change the scale
 dhx01$devhx_caffeine_11[dhx01$devhx_caffeine_11 == 0] = 4
+dhx01$birth_weight_lbs_tot = dhx01$birth_weight_lbs + ifelse(!is.na(dhx01$birth_weight_oz), dhx01$birth_weight_oz/16, 0)
+dhx01[,c("birth_weight_lbs","birth_weight_oz")] = NULL
 
 #remove outliers
-
 # dhx01$devhx_3_p[dhx01$devhx_3_p > 55] = NA
 dhx01$devhx_4_p[dhx01$devhx_4_p > 80] = NA
 
@@ -213,7 +177,7 @@ meim_wide = get_wide_data(meim)
 
 ########### Youth Screen Time Survey ###########
 stq = load_instrument("abcd_stq01",abcd_files_path)
-stq[,grep("_dk$", colnames(stq), value = T)] = NULL
+stq[,grep("_(dk|min)$", colnames(stq), value = T)] = NULL
 
 stq[stq == -1] = NA
 stq$screentime_admin = NULL
@@ -266,14 +230,6 @@ describe(macv)
 macv_wide = get_wide_data(macv)
 
 
-########### Parent Adult Self Report Raw Scores Aseba ###########
-pasr = load_instrument("pasr01",abcd_files_path)
-pasr[,grep("language|_dk$", colnames(pasr), value = T)] = NULL
-
-View(describe(pasr))
-pasr_wide = get_wide_data(pasr)
-
-
 ########### Parental Rules on Substance Use ###########
 prq = load_instrument("prq01",abcd_files_path)
 prq$pr_select_language___1 = NULL
@@ -285,9 +241,6 @@ prq[,colnames(col_to_fix)] = col_to_fix
 prq$parent_rules_q3[prq$parent_rules_q3 == 4] = NA
 prq$parent_rules_q6[prq$parent_rules_q6 == 4] = NA
 prq$parent_rules_q9[prq$parent_rules_q9 == 4] = NA
-
-prq = prq[prq$eventname != "3_year_follow_up_y_arm_1", ]
-prq = prq[, colSums(is.na(prq)) <= 0.75*nrow(prq) ]
 
 describe(prq)
 prq_wide = get_wide_data(prq)
@@ -310,6 +263,7 @@ pacc$accult_q3_other_p = NULL
 
 pacc[pacc == 777 | pacc == 999] = NA
 pacc = pacc[,grep("src|sex|event|interview|accult_q[1-2]", colnames(pacc)) ]
+describe(pacc)
 pacc_wide = get_wide_data(pacc)
 
 
@@ -326,6 +280,7 @@ cna_wide = get_wide_data(cna)
 bkfs = load_instrument("abcd_bkfs01",abcd_files_path)
 bkfs$ra_confirm = NULL
 bkfs$bkfs_select_language = NULL
+bkfs[bkfs == 777] = NA
 
 describe(bkfs)
 bkfs_wide = get_wide_data(bkfs)
@@ -335,8 +290,6 @@ bkfs_wide = get_wide_data(bkfs)
 otbi = load_instrument("abcd_otbi01",abcd_files_path)
 otbi$tbi_select_language___1 = NULL
 
-describe(otbi)
-
 
 ########### Longitudinal Parent Ohio State Traumatic Brain Injury Screen ###########
 lpohstbi = load_instrument("abcd_lpohstbi01",abcd_files_path)
@@ -345,7 +298,7 @@ lpohstbi$tbi_l_select_language___1 = NULL
 describe(lpohstbi)
 
 ### combine the 2 instruments 
-colnames(lpohstbi) = sub("_l", "", colnames(lpohstbi))
+colnames(lpohstbi) = sub("_l$", "", colnames(lpohstbi))
 tbi = rbind.fill(otbi, lpohstbi)
 describe(tbi)
 tbi_wide = get_wide_data(tbi)
@@ -372,6 +325,13 @@ colnames(cb)[grep("cybb",colnames(cb))] = paste0(colnames(cb)[grep("cybb",colnam
 cb_wide = get_wide_data(cb)
 
 
+########### Peer Experiences Questionnaire ###########
+peq01 = load_instrument("abcd_peq01",abcd_files_path)
+
+describe(peq01)
+peq01_wide = get_wide_data(peq01)
+
+
 ########### Youth Peer Behavior Profile ###########
 pbp01 = load_instrument("abcd_pbp01",abcd_files_path)
 pbp01[pbp01 == 999] = NA
@@ -391,10 +351,55 @@ describe(pnhps01)
 pnhps01_wide = get_wide_data(pnhps01)
 
 
+########### Other Resilience ###########
+ysr = load_instrument("abcd_ysr01",abcd_files_path)
+
+ysr[,grep("remote|admin|device", colnames(ysr))] = NULL
+ysr[ysr == -1 | ysr == "Don't know"] = NA
+ysr$resiliency5a_y[ysr$resiliency5a_y > 100] = 100
+ysr$resiliency6a_y[ysr$resiliency6a_y > 100] = 100
+
+describe(ysr)
+ysr_wide = get_wide_data(ysr)
+
+
+########### Youth Substance Use Attitudes ###########
+ysua = load_instrument("abcd_ysua01",abcd_files_path)
+ysua[ysua == 999] = NA
+ysua[grep("^(ptu|path|phs)",colnames(ysua))] = NULL
+describe(ysua)
+ysua_wide = get_wide_data(ysua)
+
+
+###########  Youth Substance Use Interview ###########
+ysu02 = load_instrument("abcd_ysu02",abcd_files_path)
+ysu02[, grep("^(path)_|su_today|tlfb_age|_dk$", colnames(ysu02), value = T)] = NULL
+
+
+###########  Youth Substance Use Introduction and Patterns ###########
+ysuip = load_instrument("abcd_ysuip01",abcd_files_path)
+ysuip$xskipout_device = NULL
+ysuip[, grep("tlfb_age", colnames(ysuip), value = T)] = NULL
+
+
+### combine the 2 instruments 
+colnames(ysuip) = sub("_l$", "", colnames(ysuip))
+colnames(ysuip) = sub("_l_", "_", colnames(ysuip))
+colnames(ysuip) = sub("_lsd_", "_hall_", colnames(ysuip))
+
+ind_to_fix = grep("isip_(.*)_2", colnames(ysu02))
+colnames(ysu02)[ind_to_fix] = sub("_2", "", colnames(ysu02)[ind_to_fix])
+  
+ysu = rbind.fill(ysu02, ysuip)
+ysu_wide = get_wide_data(ysu)
+View(describe(ysu_wide))
+
+
 ########### Occupation Survey Parent ###########
 occsp01 = load_instrument("abcd_occsp01",abcd_files_path)
 occsp01 = occsp01[, grep("src|event|interview|sex|ocp_.*_acs_(indust|ocp)", colnames(occsp01))]
 occsp01[occsp01 == 777 | occsp01 == 999] = NA
+
 describe(occsp01)
 
 library("fastDummies")
@@ -402,14 +407,6 @@ columns_to_dummy = grep("ocp", colnames(occsp01), value = T)
 occsp01 <- dummy_cols(occsp01, select_columns = columns_to_dummy, ignore_na = T, remove_selected_columns = T)
 
 occsp01_wide = get_wide_data(occsp01)
-
-
-########### Parent Prosocial Behavior Survey ###########
-psb01 = load_instrument("psb01",abcd_files_path)
-psb01$prosoc_p_select_language___1 = NULL
-
-describe(psb01)
-psb01_wide = get_wide_data(psb01)
 
 
 
@@ -420,7 +417,7 @@ exposome_set = merge(exposome_set, fes01_wide, all =T)
 exposome_set = merge(exposome_set, fes02_wide, all =T)
 exposome_set = merge(exposome_set, pmq01_wide, all =T)
 exposome_set = merge(exposome_set, nsc01_wide, all =T)
-exposome_set = merge(exposome_set, pnsc01_wide, all =T)
+# exposome_set = merge(exposome_set, pnsc01_wide, all =T)
 exposome_set = merge(exposome_set, yle01_wide, all =T)
 exposome_set = merge(exposome_set, ple_wide, all =T)
 exposome_set = merge(exposome_set, crpf_wide, all =T)
@@ -428,12 +425,11 @@ exposome_set = merge(exposome_set, pxccp01_wide, all = T)
 exposome_set = merge(exposome_set, dhx01_wide, all = T)
 exposome_set = merge(exposome_set, yrb_wide, all = T)
 exposome_set = merge(exposome_set, saiq_wide, all =T)
-exposome_set = merge(exposome_set, meim_wide, all =T)
+# exposome_set = merge(exposome_set, meim_wide, all =T)
 exposome_set = merge(exposome_set, stq_wide, all =T)
 exposome_set = merge(exposome_set, stq01_wide, all =T)
 exposome_set = merge(exposome_set, crpbi_wide, all =T)
-exposome_set = merge(exposome_set, macv_wide, all =T)
-exposome_set = merge(exposome_set, pasr_wide, all =T)
+# exposome_set = merge(exposome_set, macv_wide, all =T)
 exposome_set = merge(exposome_set, prq_wide, all =T)
 exposome_set = merge(exposome_set, yacc_wide, all =T)
 exposome_set = merge(exposome_set, pacc_wide, all =T)
@@ -441,10 +437,13 @@ exposome_set = merge(exposome_set, cna_wide, all =T)
 exposome_set = merge(exposome_set, bkfs_wide, all =T)
 exposome_set = merge(exposome_set, tbi_wide, all =T)
 exposome_set = merge(exposome_set, cb_wide, all =T)
+exposome_set = merge(exposome_set, peq01_wide, all =T)
 exposome_set = merge(exposome_set, pbp01_wide, all =T)
 exposome_set = merge(exposome_set, pnhps01_wide, all =T)
+exposome_set = merge(exposome_set, ysr_wide, all =T)
+exposome_set = merge(exposome_set, ysua_wide, all =T)
+exposome_set = merge(exposome_set, ysu_wide, all =T)
 exposome_set = merge(exposome_set, occsp01_wide, all =T)
-exposome_set = merge(exposome_set, psb01_wide, all =T)
 
 write.csv(exposome_set, "data/exposome_set_item.csv", row.names = F, na = "")
 

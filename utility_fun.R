@@ -61,17 +61,17 @@ get_wide_data = function(data, max_features = NULL){
   colnames_to_clean = grep("src|interview|sex|event",colnames(data), value = T, invert = T)
   
   # create timepoint feature for the wide dataset
-  data$timepoint = regmatches(data$eventname, regexpr(".*_year", data$eventname))
+  data$timepoint = sub("_year.*", "", data$eventname)
   data[, c("interview_age", "interview_date", "eventname")] = NULL
   
-  data_wide = reshape(data, direction = "wide", idvar = c("src_subject_id", "sex"), timevar = "timepoint", sep = "_")
+  data_wide = reshape(data, direction = "wide", idvar = c("src_subject_id", "sex"), timevar = "timepoint", sep = "__")
   data_wide = data_wide[,colSums(is.na(data_wide)) != nrow(data_wide)]
   
   
   for (col_name in colnames_to_clean) {
     
     # get relevant columns from wide 
-    cols_wide = grep(paste0(col_name, "_"), colnames(data_wide), value = T)
+    cols_wide = grep(paste0(col_name, "__"), colnames(data_wide), value = T)
     
     # if there is only one column, no need to update it
     if(length(cols_wide) == 1) {
@@ -90,29 +90,35 @@ get_wide_data = function(data, max_features = NULL){
       })
     }else{
       # check range
-      col_range = range(data[,col_name], na.rm = T)
-      if(col_range[2]-col_range[1] == 1 ){
+      col_range_segment = range(data[,col_name], na.rm = T)
+      col_range = col_range_segment[2]-col_range_segment[1]
+      if(col_range == 1 ){
         # binary
         print(paste0("binary:    ", col_name, "     vari: ",paste(cols_wide, collapse = " | ")))
         new_col_name = paste0(col_name, "_ever")
         data_wide[,new_col_name] = apply(data_wide[,cols_wide], 1, function(r){
           if(all(is.na(r))) {return(NA)}                            
-          any(r == col_range[2], na.rm = T)*1
+          any(r == col_range_segment[2], na.rm = T)*1
           })
-      }else{
+      }else if(col_range != 0){
         # continues 
         print(paste0("continues: ", col_name, "     vari: ",paste(cols_wide, collapse = " | ")))
         new_col_name = paste0(col_name, "_mean")
         data_wide[,new_col_name] = rowMeans(data_wide[,cols_wide], na.rm = T)
+      }else{
+        # no range
+        print(paste0("no range:  ", col_name, "     vari: ",paste(cols_wide, collapse = " | ")))
       }
     }
     
+    #if summary variable was created, remove the timepoints items
     data_wide[,cols_wide] = NULL
   }
   
   # keep only features with at least 80% data
   data_wide = data_wide[, colSums(is.na(data_wide)) <= .2*nrow(data_wide)]
-  data_wide = data_wide[, sapply(data_wide, function(x){ is.na(sd(x)) | sd(x)> 0 })]
+  col_with_sd = sapply(data_wide[,!grepl("src|sex", colnames(data_wide)), drop = F], function(x){sd(x, na.rm = T)> 0})
+  data_wide = data_wide[, c("src_subject_id", "sex", names(which(col_with_sd))) ]
   print(paste0("# of cols: " , length(colnames(data_wide))-2))
   
   return(data_wide)
