@@ -122,8 +122,7 @@ suss_wide = get_wide_data(suss)
 
 
 ########### merge all tables ###########
-exposome_set = merge(sscep_wide, ssmty_wide ,all = T)
-exposome_set = merge(exposome_set, tbi_wide ,all = T)
+exposome_set = merge(sscep_wide, tbi_wide ,all = T)
 exposome_set = merge(exposome_set, ssphp01_wide ,all = T)
 
 

@@ -23,7 +23,7 @@ suicide_site_wide = reshape(suicide_site, direction = "wide", idvar = c("src_sub
 suicide_site_wide$SA_y_ever = apply(suicide_site_wide[,grep("SA_y", colnames(suicide_site_wide))], 1, function(r){ any(r == 1)*1 })
 
 # select only kids that have value in SA ever
-suicide_site_wide = suicide_site_wide[!is.na(suicide_site_wide$SA_y_ever), grep("src|sex|SA_y|site", colnames(suicide_site_wide))]
+suicide_site_wide = suicide_site_wide[!is.na(suicide_site_wide$SA_y_ever), grep("src|sex|SA_y_ever|site", colnames(suicide_site_wide))]
 
 # select the latest site
 suicide_site_wide$site_id_l_br = ifelse(!is.na(suicide_site_wide$site_id_l_br__2), suicide_site_wide$site_id_l_br__2,
@@ -43,12 +43,14 @@ demographics_baseline <- read_csv("data/demographics_baseline.csv")
 demographics_long <- read_csv("data/demographics_long.csv")
 
 demo_race = demographics_baseline[,grep("src|race|hisp|born_in_usa", colnames(demographics_baseline))]
-demographics_baseline = demographics_baseline[, grep("race|sex_br|age|hisp|born_in_usa|interview", colnames(demographics_baseline), invert= T)]
+demographics_baseline = demographics_baseline[, grep("race|hisp|born_in_usa", colnames(demographics_baseline), invert= T)]
 
 demographics_long = demographics_long[demographics_long$eventname != "baseline_year_1_arm_1",]
-demographics_long[,c("interview_date", "interview_age", "sex_br", "age")] = NULL
 
 demographics_exposome = rbind.fill(demographics_baseline, demographics_long)
+
+# not relevant for now 
+demographics_exposome[,c("age")] = NULL
 demographics_exposome_wide = get_wide_data(demographics_exposome)
 
 write.csv(file = "data/demographics_exposome_wide.csv", x = demographics_exposome_wide, row.names=F, na = "")
