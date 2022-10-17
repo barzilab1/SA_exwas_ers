@@ -11,7 +11,7 @@
 
    1. Delete unrelevent categories and scripts.
    2. Adjust the required scripts. if needed, select/diselect variables. 
-   3. Run the scripts. the new datasets are created under the [outputs](/outputs) folder.
+   3. Run the scripts. the new datasets are created under the [data](/data) folder.
 
 3. Merge the datasets:
 
