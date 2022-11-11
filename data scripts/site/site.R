@@ -8,5 +8,7 @@ site$site_id_l_br = sub("site","",site$site_id_l)
 site[,c("sched_delay", "sched_hybrid", "site_id_l")] = NULL
 site = site[grep("year",site$eventname),]
 
+
+site = site[site$eventname != "3_year_follow_up_y_arm_1", ]
 write.csv(file = "data/site.csv",x = site, row.names = F, na = "")
 

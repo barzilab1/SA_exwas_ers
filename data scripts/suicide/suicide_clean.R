@@ -36,7 +36,7 @@ ksad_y$nssi_y <- (ksad_y$nssi_current_y == 1 | ksad_y$nssi_past_y == 1)*1
 #control: SA, SI, NSSI = 0
 # ksad_y$sui_control <- apply(ksad_y[,which(grepl("SA_y|SI_y|nssi_y", colnames(ksad_y)))], 1, function(x) {all(x == 0)*1})
 
-suicide_set <- ksad_y[,grepl("src|inter|event|sex|SI|SA|sui|nssi", colnames(ksad_y))]
+suicide_set <- ksad_y[,grepl("src|inter|event|sex|SA_y", colnames(ksad_y))]
 
 
 write.csv(file = "data/suicide_long.csv", x = suicide_set, row.names = F, na = "")

@@ -1,79 +1,92 @@
 library(readr)
-library(plyr)
+library(janitor)
+library(qgraph)
+library(caret)
 
+source("config.R")
 source("utility_fun.R")
 
 
-## create suicide wide ####
+### load files and merge ####
 family_relationship <- read_csv("data/family_relationship.csv")
 site <- read_csv("data/site.csv")
 suicide <- read_csv("data/suicide_long.csv")
 
-
 suicide_site = merge(suicide, site)
+suicide_site = suicide_site[complete.cases(suicide_site$SA_y) , grep("interview", colnames(suicide_site), invert = T)]
+suicide_site = merge(suicide_site, family_relationship[,c("src_subject_id","sex","rel_family_id")])
 
-suicide_site$timepoint = sub("_year.*", "", suicide_site$eventname)
-suicide_site[,c("interview_date","interview_age","eventname")] = NULL
-suicide_site_wide = reshape(suicide_site, direction = "wide", idvar = c("src_subject_id", "sex"), timevar = "timepoint", sep = "__")
+participants = read.table(file = paste0(main_abcd_path, abcd_box_path,abcd_data_path,'partition/participants.tsv'), sep = '\t', header = TRUE)
+participants$src_subject_id = sub("sub-NDAR", "NDAR_", participants$participant_id)
+participants$site_id_l_br = as.numeric(sub("site", "", participants$site))
+participants = unique(participants[, c("src_subject_id", "matched_group")]) #site_id_l_br
 
-## define SA_ever ###
-#' 1 = if the kid has ever said “yes” to any of the questions of SA (no matter if he answered all questions or no),
-#' 0 = if the kid said no to all questions. 
-#' NA = In case of missing data and the kid didn’t answer “Yes” to any question related to SA
-suicide_site_wide$SA_y_ever = apply(suicide_site_wide[,grep("SA_y", colnames(suicide_site_wide))], 1, function(r){ any(r == 1)*1 })
 
-# select only kids that have value in SA ever
-suicide_site_wide = suicide_site_wide[!is.na(suicide_site_wide$SA_y_ever), grep("src|sex|SA_y_ever|site", colnames(suicide_site_wide))]
+### merge participants ####
+dataset_long = merge(suicide_site, participants)
 
-# select the latest site
-suicide_site_wide$site_id_l_br = ifelse(!is.na(suicide_site_wide$site_id_l_br__2), suicide_site_wide$site_id_l_br__2,
-                                   ifelse(!is.na(suicide_site_wide$site_id_l_br__1), suicide_site_wide$site_id_l_br__1, 
-                                          suicide_site_wide$site_id_l_br__baseline))
-suicide_site_wide[, grep("site_id_l_br_", colnames(suicide_site_wide))] = NULL
-suicide_site_wide$site_id_l_br[suicide_site_wide$site_id_l_br == 22] = 21
+DV_suicide_train = dataset_long[dataset_long$matched_group == 1,]
+DV_suicide_test = dataset_long[dataset_long$matched_group == 2,]
 
-## merge wide and family relationship data 
-dataset_wide = merge(suicide_site_wide, family_relationship[,c("src_subject_id","sex","rel_family_id")])
-write.csv(file = "data/suicide_wide.csv", x = dataset_wide, row.names=F, na = "")
+write.csv(file = "data/DV_suicide_train.csv", x = DV_suicide_train, row.names=F, na = "")
+write.csv(file = "data/DV_suicide_test.csv", x = DV_suicide_test, row.names=F, na = "")
 
 
 
-## organize demographics #### 
-demographics_baseline <- read_csv("data/demographics_baseline.csv")
-demographics_long <- read_csv("data/demographics_long.csv")
+### merge individual level features ###
+exposome_item <- read_csv("data/exposome_set_item.csv")
+exposome_sum <- read_csv("data/exposome_sum_set.csv")
+demographics <- read_csv("data/demographics_all.csv")
 
-demo_race = demographics_baseline[,grep("src|race|hisp|born_in_usa", colnames(demographics_baseline))]
-demographics_baseline = demographics_baseline[, grep("race|hisp|born_in_usa", colnames(demographics_baseline), invert= T)]
+structural_level <- read_csv("data/geo_data.csv") 
 
-demographics_long = demographics_long[demographics_long$eventname != "baseline_year_1_arm_1",]
+individual_level = merge(demographics, exposome_sum)
+individual_level = merge(individual_level, exposome_item)
 
-demographics_exposome = rbind.fill(demographics_baseline, demographics_long)
-
-# not relevant for now 
-demographics_exposome[,c("age")] = NULL
-demographics_exposome_wide = get_wide_data(demographics_exposome)
-
-write.csv(file = "data/demographics_exposome_wide.csv", x = demographics_exposome_wide, row.names=F, na = "")
-write.csv(file = "data/demo_race.csv", x = demo_race, row.names=F, na = "")
+individual_level = merge(individual_level, suicide_site[,c("src_subject_id", "eventname")])
+structural_level = merge(structural_level, suicide_site[,c("src_subject_id", "eventname")])
 
 
+### remove features with more than 10% missing data ####
+remove_cols_with_na = function(df){
+  removed_variables = vector(length = ncol(df), mode = "integer")
+  names(removed_variables) = colnames(df)
+  for (timepoint in names(table(df$eventname))) {
+    sub_dataset = df[df$eventname == timepoint,]
+    vari_deletetd = colnames(sub_dataset)[which( colSums(is.na(sub_dataset)) >= 0.10*nrow(sub_dataset))]
+    removed_variables[vari_deletetd] = removed_variables[vari_deletetd] + 1
+    df[df$eventname == timepoint, vari_deletetd] = NA
+  }
+
+  df = remove_empty(df, which = "cols")
+  
+  return(list(df = df,
+              removed_variables = removed_variables))
+}
+
+individual_level = remove_cols_with_na(individual_level)$df
+structural_level = remove_cols_with_na(structural_level)$df
+
+
+### check corr ###
+individual_level = merge(individual_level, DV_suicide_train[,c("src_subject_id", "eventname")])
+corr_data = individual_level[,grep("src|sex|interview|event", colnames(individual_level), invert = T)]
+corrs = cor_auto(corr_data)
+corr_featuers = findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbose = T) 
+individual_level[,corr_featuers] = NULL
+
+structural_level = merge(structural_level, DV_suicide_train[,c("src_subject_id", "eventname")])
+corr_data = structural_level[,grep("src|sex|interview|event", colnames(structural_level), invert = T)]
+corrs = cor_auto(corr_data)
+corr_featuers = findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbose = T) 
+structural_level[,corr_featuers] = NULL
+
+write.csv(file = "data/individual_level.csv", x = individual_level, row.names=F, na = "")
+write.csv(file = "data/structural_level.csv", x = structural_level, row.names=F, na = "")
 
 
 
 
-
-
-
-
-
-
-
-
-
-# ## merge wide and participants ####
-# participants$src_subject_id = sub("sub-NDAR", "NDAR_", participants$participant_id)
-# participants = unique(participants[, c("src_subject_id", "matched_group")])
-# dataset_wide = unique(merge(dataset_wide, participants))
 
 
 
