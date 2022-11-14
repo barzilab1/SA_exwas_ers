@@ -15,6 +15,7 @@ get_results <- function(mod){
   
   coeffic_ci = round(confint(mod,method="Wald")[variable,], digits = 3)
   coeffic_ci = paste0(coeffic_ci[1],"-",coeffic_ci[2])
+   
   ci = round(exp(confint(mod,method="Wald"))[variable,], digits = 3)
   ci = paste0(ci[1],"-",ci[2])
   
@@ -29,7 +30,7 @@ get_results <- function(mod){
 
 
 run_mm <- function(variable, dataset ){
-  formula_str = as.formula(paste0("SA_y", " ~ ", variable, " + interview_age + sex + (1 | site_id_l_br/rel_family_id/src_subject_id)"))
+  formula_str = as.formula(paste0("SA_y ~ ", variable, " + interview_age + (interview_age)^2 + (interview_age)^3 + sex + (1 | site_id_l_br/rel_family_id/src_subject_id)"))
   glmer(formula_str, family = binomial, data = dataset, nAGQ = 0)
 }
  
@@ -45,8 +46,8 @@ run_models <- function(dataset_IV, dataset_DV, file_name){
   # tab_model(models_list[[1]],show.intercept = F)
   
   # in case the variable was dropped by the mix model
-  results_to_print = results_to_print[results_to_print$Feature != "interview_age", ]
-  print(paste0("vari not in mm: ", paste(setdiff(variables, results_to_print$Feature), collapse = " | ")))
+  # results_to_print = results_to_print[results_to_print$Feature != "interview_age", ]
+  # print(paste0("vari not in mm: ", paste(setdiff(variables, results_to_print$Feature), collapse = " | ")))
   
   write.csv(file = paste0("outputs/", file_name, "_results.csv"), results_to_print, row.names = F)
   
@@ -55,8 +56,8 @@ run_models <- function(dataset_IV, dataset_DV, file_name){
 
 
 #### read data #### 
-individual_level <- read_csv("data/individual_level.csv")
-structural_level <- read_csv("data/structural_level.csv")
+individual_level <- read_csv("data/individual_level_training.csv")
+structural_level <- read_csv("data/structural_level_training.csv")
 
 suicide_train <- read_csv("data/DV_suicide_train.csv")
 

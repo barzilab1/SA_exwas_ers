@@ -2,7 +2,7 @@ library(readr)
 
 load_instrument <- function(file_name, file_path) {
   
-  instrument = read.csv(file = paste0(file_path,file_name,".txt"), sep = '\t',header = TRUE,
+  instrument = read.csv(file = file.path(file_path,paste0(file_name,".txt")), sep = '\t',header = TRUE,
                         row.names=NULL, na.string = c("","NA"), check.names=FALSE)
   
   #remove details line

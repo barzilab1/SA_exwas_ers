@@ -16,10 +16,19 @@ rhds01$reshist_state_mj_laws_b = ifelse(rhds01$reshist_state_mj_law < 4 , 1, 0)
 rhds01$reshist_addr1_urban_area_b = ifelse(rhds01$reshist_addr1_urban_area >1 , 1, 0)
 rhds01[,c("reshist_state_mj_law","reshist_addr1_urban_area")] = NULL
 
-# scale columns 
-rhds01_range = sapply(rhds01[,grep("reshist", colnames(rhds01))], range, na.rm = T)
-cols_to_scale = names(which(rhds01_range[2,]-rhds01_range[1,] >= 1e+04))
-rhds01[,cols_to_scale] = scale(rhds01[,cols_to_scale])
+
+describe(rhds01[grep("reshist_addr1_svi", colnames(rhds01))])
+temp = rhds01[,grep("reshist_addr1_svi", colnames(rhds01))]
+temp[temp == -999] = NA
+rhds01[,grep("reshist_addr1_svi", colnames(rhds01))] = temp
+
+describe(rhds01[grep("reshist_addr1_adi", colnames(rhds01))])
+View(describe(rhds01[grep("reshist_addr1_coi", colnames(rhds01))]))
+describe(rhds01[grep("reshist_addr1_opat", colnames(rhds01))])
+describe(rhds01[grep("reshist_addr1_scan", colnames(rhds01))])
+describe(rhds01[grep("reshist_state", colnames(rhds01))])
+describe(rhds01[grep("src|event|interv|reshist_(state|addr1_(svi|adi|coi|opat|scan))", colnames(rhds01), invert = T)])
+
 
 # remove 3 year follow up
 rhds01 = rhds01[rhds01$eventname != "3_year_follow_up_y_arm_1", ]
