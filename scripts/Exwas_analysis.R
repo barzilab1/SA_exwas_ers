@@ -56,8 +56,8 @@ run_models <- function(dataset_IV, dataset_DV, file_name){
 
 
 #### read data #### 
-individual_level <- read_csv("data/individual_level_training.csv")
-structural_level <- read_csv("data/structural_level_training.csv")
+individual_level <- read_csv("data/individual_level_train.csv")
+structural_level <- read_csv("data/structural_level_train.csv")
 
 suicide_train <- read_csv("data/DV_suicide_train.csv")
 

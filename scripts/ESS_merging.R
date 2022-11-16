@@ -3,8 +3,8 @@ library(readr)
 source("config.R")
 
 #### read data #### 
-individual_level <- read_csv("data/individual_level.csv")
-structural_level <- read_csv("data/structural_level.csv")
+individual_level <- read_csv("data/individual_level_test.csv")
+structural_level <- read_csv("data/structural_level_test.csv")
 
 individual_level_results <- read_csv("outputs/individual_level_results.csv")
 structural_level_results <- read_csv("outputs/structural_level_results.csv")
