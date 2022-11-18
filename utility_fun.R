@@ -50,7 +50,7 @@ load_instrument <- function(file_name, file_path) {
 
 get_wide_data = function(data, max_features = NULL){
   #### TODO: delete
-  data = fix_release_4_sex(data)
+  # data = fix_release_4_sex(data)
   
   
   # remove 3 year follow up and empty columns 
@@ -58,7 +58,7 @@ get_wide_data = function(data, max_features = NULL){
   data = data[, colSums(is.na(data)) != nrow(data)]
   
   # get the columns to work with 
-  colnames_to_clean = grep("src|interview|sex|event",colnames(data), value = T, invert = T)
+  colnames_to_clean = grep("src|interview|^sex|event",colnames(data), value = T, invert = T)
   
   # create timepoint feature for the wide dataset
   data$timepoint = sub("_year.*", "", data$eventname)
@@ -116,9 +116,9 @@ get_wide_data = function(data, max_features = NULL){
   }
   
   # keep only features with at least 80% data
-  data_wide = data_wide[, colSums(is.na(data_wide)) <= .2*nrow(data_wide)]
-  col_with_sd = sapply(data_wide[,!grepl("src|sex", colnames(data_wide)), drop = F], function(x){sd(x, na.rm = T)> 0})
-  data_wide = data_wide[, c("src_subject_id", "sex", names(which(col_with_sd))) ]
+  # data_wide = data_wide[, colSums(is.na(data_wide)) < .2*nrow(data_wide)]
+  # col_with_sd = sapply(data_wide[,!grepl("src|sex", colnames(data_wide)), drop = F], function(x){sd(x, na.rm = T)> 0})
+  # data_wide = data_wide[, c("src_subject_id", "sex", names(which(col_with_sd))) ]
   print(paste0("# of cols: " , length(colnames(data_wide))-2))
   
   return(data_wide)

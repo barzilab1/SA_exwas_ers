@@ -29,9 +29,8 @@ source("utility_fun.R")
 
 ########### Parent Family History Summary Scores ###########
 fhxssp = load_instrument("abcd_fhxssp01",abcd_files_path)
-fhxssp = fhxssp[,grepl("^(src|sex|inter|event)|momdad", colnames(fhxssp))]
+fhxssp = fhxssp[,grepl("^(src|sex|inter|event)|momdad_scd_p", colnames(fhxssp))]
 
-fh_set = fhxssp[,c("src_subject_id", "eventname", "famhx_ss_momdad_scd_p")]
 
-write.csv(file = "data/family_history.csv",x = fh_set, row.names = F, na = "")
+write.csv(file = "data/family_history.csv",x = fhxssp, row.names = F, na = "")
 
