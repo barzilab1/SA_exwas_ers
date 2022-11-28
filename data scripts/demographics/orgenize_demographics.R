@@ -15,6 +15,9 @@ demographics_long = rbind.fill(demographics_baseline, demographics_long)
 # not relevant for now 
 demographics_long[,c("age")] = NULL
 
+demographics_long$demo_fam_poverty_b = ifelse(demographics_long$demo_fam_poverty > 0, 1,0 )
+demographics_long$demo_fam_poverty = NULL
+
 write.csv(file = "data/demographics_all.csv", x = demographics_long, row.names=F, na = "")
 write.csv(file = "data/demo_race.csv", x = demo_race, row.names=F, na = "")
 

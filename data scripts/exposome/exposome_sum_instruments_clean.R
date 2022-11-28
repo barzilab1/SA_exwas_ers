@@ -46,6 +46,10 @@ tbi = rbind.fill(tbi01, lsstbi01)
 tbi01$tbi_ss_worst1[is.na(tbi01$tbi_ss_worst1)] = 0
 describe(tbi)
 
+tbi$tbi_ss_nmrpi_b = ifelse(tbi$tbi_ss_nmrpi > 0 , 1, 0)
+tbi$tbi_ss_worst_overall_b = ifelse(tbi$tbi_ss_worst_overall  > 1 , 1, 0)
+tbi[,c("tbi_ss_nmrpi", "tbi_ss_worst_overall")] = NULL
+
 
 ################### Sum Scores Mental Health Youth ################### 
 # mhy = load_instrument("abcd_mhy02", abcd_files_path)

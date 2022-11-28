@@ -155,17 +155,20 @@ dhx01$devhx_caff_amt_week[dhx01$devhx_caff_amt_week > 24] = NA
 
 #dichotomize features 
 dhx01$devhx_mom_age_young = ifelse(dhx01$devhx_3_p < quantile(dhx01$devhx_3_p , .1, na.rm = T), 1, 0)
-dhx01$devhx_mom_age_old   = ifelse(dhx01$devhx_3_p > quantile(dhx01$devhx_3_p , .9, na.rm = T), 1, 0)
+dhx01$devhx_mom_age_old   = ifelse(dhx01$devhx_3_p >= 35, 1, 0)
 
-dhx01$devhx_prenatal_care_HRP  = ifelse(dhx01$devhx_11_p > quantile(dhx01$devhx_11_p , .9, na.rm = T), 1, 0)
-dhx01$devhx_prenatal_care_low  = ifelse(dhx01$devhx_11_p < 14, 1, 0)
+dhx01$devhx_caffeine_11_b = ifelse(dhx01$devhx_caffeine_11 == 4, 1, 0)
+
+# dhx01$devhx_prenatal_care_HRP  = ifelse(dhx01$devhx_11_p > quantile(dhx01$devhx_11_p , .9, na.rm = T), 1, 0)
+# dhx01$devhx_prenatal_care_low  = ifelse(dhx01$devhx_11_p < 14, 1, 0)
 
 dhx01$devhx_late_motor_development = ifelse(dhx01$devhx_20_p == 5, 1, 0)
 dhx01$devhx_late_speech_development = ifelse(dhx01$devhx_21_p == 5, 1, 0)
 
 dhx01$devhx_low_birth_weight = ifelse(dhx01$birth_weight_lbs_tot < (2500/453.6), 1, 0)
 
-dhx01[,c("devhx_3_p", "devhx_11_p", "devhx_20_p", "devhx_21_p", "birth_weight_lbs_tot")] = NULL
+# dhx01[,c("devhx_3_p", "devhx_11_p", "devhx_20_p", "devhx_21_p", "birth_weight_lbs_tot")] = NULL
+dhx01[,c("devhx_3_p", "devhx_caffeine_11", "devhx_20_p", "devhx_21_p", "birth_weight_lbs_tot")] = NULL
 
 # View(describe(dhx01))
 

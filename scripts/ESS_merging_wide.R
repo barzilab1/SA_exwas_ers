@@ -26,7 +26,7 @@ suicide_wide = suicide_wide[!is.na(suicide_wide$SA_y_ever), c("src_subject_id", 
 
 ### exposome wide
 individual_level_wide = get_wide_data(individual_level, "tbi_ss_worst_overall")
-structural_level_wide = get_wide_data(structural_level) ### TODO check structural test dataset. missing ~300 kids ==> rerun the new geo
+structural_level_wide = get_wide_data(structural_level) 
 
 
 dataset = merge(suicide_wide, race, all.x = T)
@@ -85,8 +85,8 @@ individual_cut_off = individual_level_results[individual_level_results$fdr <= 0.
 structural_cut_off = structural_level_results[structural_level_results$fdr <= 0.05, c("Feature", "Coefficients")]
 
 
-write.csv(file = paste0("outputs/individual_level_results_fdr.csv"), individual_level_results, row.names = F)
-write.csv(file = paste0("outputs/structural_level_results_fdr.csv"), structural_level_results, row.names = F)
+write.csv(file = paste0("outputs/individual_level_results_fdr_wide.csv"), individual_level_results, row.names = F)
+write.csv(file = paste0("outputs/structural_level_results_fdr_wide.csv"), structural_level_results, row.names = F)
 
 
 colnames(individual_level_wide) = sub("_(mean|ever|max|_(1|2|baseline))","",colnames(individual_level_wide))
@@ -105,14 +105,17 @@ structural_level_wide$exwas_structural_sum = apply(structural_level_wide[,struct
 })
 
 
-dataset = merge(dataset, individual_level_wide[,c("src_subject_id", "sex", "exwas_individual_sum")] )
-dataset = merge(dataset, structural_level_wide[,c("src_subject_id", "sex", "exwas_structural_sum")] )
+individual_level_wide$exwas_individual_sum_z = scale(individual_level_wide$exwas_individual_sum)
+structural_level_wide$exwas_structural_sum_z = scale(structural_level_wide$exwas_structural_sum)
 
-write.csv(file = paste0("data/dataset_ESS.csv"), dataset, row.names = F)
+dataset = merge(dataset, individual_level_wide[,c("src_subject_id", "sex", "exwas_individual_sum", "exwas_individual_sum_z")] )
+dataset = merge(dataset, structural_level_wide[,c("src_subject_id", "sex", "exwas_structural_sum", "exwas_structural_sum_z")] )
+
+write.csv(file = paste0("data/dataset_ESS_wide.csv"), dataset, row.names = F)
 
 
 
-View(describe(individual_level_wide[,c(individual_cut_off_risk$Feature, individual_cut_off_prote$Feature)]))
+# View(describe(individual_level_wide[,c(individual_cut_off_risk$Feature, individual_cut_off_prote$Feature)]))
 
 
 # individual_level_results$bonferroni = p.adjust(individual_level_results$P_value, "bonferroni")

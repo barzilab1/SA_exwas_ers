@@ -49,6 +49,8 @@ structural_level$exwas_structural_sum = apply(structural_level[,structural_cut_o
   return(sum(r*structural_cut_off$Coefficients, na.rm = T))
 })
 
+individual_level$exwas_individual_sum_z = scale(individual_level$exwas_individual_sum)
+structural_level$exwas_structural_sum_z = scale(structural_level$exwas_structural_sum)
 
 ### create dataset for exposome sum score
 suicide_test <- read_csv("data/DV_suicide_test.csv")
@@ -59,8 +61,8 @@ genetics <- read_csv(file.path(abcd_genetics_path, "genetic.csv"))
 dataset = merge(suicide_test, race, all.x = T)
 dataset = merge(dataset, FH_suicide[,c("src_subject_id", "famhx_ss_momdad_scd_p")], all.x = T)
 dataset = merge(dataset, genetics[,c("src_subject_id", "suicide_PRSice_Pt0_05", "genetic_afr")], all.x = T)
-dataset = merge(dataset, individual_level[,c("src_subject_id", "eventname", "interview_age", "sex", "exwas_individual_sum")] )
-dataset = merge(dataset, structural_level[,c("src_subject_id", "eventname", "interview_age", "sex", "exwas_structural_sum")] )
+dataset = merge(dataset, individual_level[,c("src_subject_id", "eventname", "interview_age", "sex", "exwas_individual_sum", "exwas_individual_sum_z")] )
+dataset = merge(dataset, structural_level[,c("src_subject_id", "eventname", "interview_age", "sex", "exwas_structural_sum", "exwas_structural_sum_z")] )
 
 write.csv(file = paste0("data/dataset_ESS.csv"), dataset, row.names = F)
 
