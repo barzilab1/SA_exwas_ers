@@ -2,7 +2,7 @@ library(nbpMatching)
 
 #### split the data ####
 
-#### TODO add zipcode for the partition? geneder?
+#### TODO add zipcode for the partition? gender?
 
 df = readRDS("exwas/data/dataset_individual_full.rds")
 df = df[ visit_number == 1 ,]

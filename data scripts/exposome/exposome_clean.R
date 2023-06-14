@@ -170,6 +170,7 @@ dhx01$devhx_low_birth_weight = ifelse(dhx01$birth_weight_lbs_tot < (2500/453.6),
 # dhx01[,c("devhx_3_p", "devhx_11_p", "devhx_20_p", "devhx_21_p", "birth_weight_lbs_tot")] = NULL
 dhx01[,c("devhx_3_p", "devhx_caffeine_11", "devhx_20_p", "devhx_21_p", "birth_weight_lbs_tot")] = NULL
 
+dhx01[,c("eventname", "interview_age", "interview_date")] = NULL
 # View(describe(dhx01))
 
 
@@ -342,7 +343,6 @@ exposome_set = merge(exposome_set, yle01, all =T)
 exposome_set = merge(exposome_set, ple, all =T)
 exposome_set = merge(exposome_set, crpf, all =T)
 exposome_set = merge(exposome_set, pxccp01, all = T)
-exposome_set = merge(exposome_set, dhx01, all = T)
 # exposome_set = merge(exposome_set, meim, all =T)
 exposome_set = merge(exposome_set, crpbi, all =T)
 # exposome_set = merge(exposome_set, macv, all =T)
@@ -361,6 +361,10 @@ exposome_set = merge(exposome_set, occsp01, all =T)
 exposome_set = exposome_set[exposome_set$eventname != "3_year_follow_up_y_arm_1", ]
 exposome_set = exposome_set[, colSums(is.na(exposome_set)) != nrow(exposome_set)]
 
+# add pregnancy/birth/development to all time points 
+exposome_set = merge(exposome_set, dhx01, all.x = T)
+
+exposome_set$sex = NULL
 write.csv(exposome_set, "data/exposome_set_item.csv", row.names = F, na = "")
 
 

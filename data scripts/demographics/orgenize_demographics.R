@@ -12,7 +12,6 @@ colnames(demographics_long) = sub("_l$", "",colnames(demographics_long) )
 demographics_long = demographics_long[demographics_long$eventname != "baseline_year_1_arm_1",]
 demographics_long = rbind.fill(demographics_baseline, demographics_long)
 
-# not relevant for now 
 demographics_long[,c("age")] = NULL
 
 demographics_long$demo_fam_poverty_b = ifelse(demographics_long$demo_fam_poverty > 0, 1,0 )

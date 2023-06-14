@@ -1,8 +1,16 @@
 library(psych)
+library(plyr)
 
 source("config.R")
 source("utility_fun.R")
 
+
+########### Youth Acculturation Survey ###########
+# yacc = load_instrument("yacc01",abcd_files_path)
+# yacc[yacc == 777 | yacc == 999] = NA
+# yacc = yacc[,grep("src|sex|event|interview|accult_q[1-2]", colnames(yacc)) ]
+# 
+# describe(yacc)
 
 
 ########### Youth Risk Behavior Survey Exercise Physical Activity (YRB) ###########
@@ -12,32 +20,33 @@ yrb = load_instrument("abcd_yrb01",abcd_files_path)
 yrb$physical_activity2_y = yrb$physical_activity2_y - 1
 
 describe(yrb)
-yrb_wide = get_wide_data(yrb)
 
 
 ########### Parent Sports and Activities Involvement Questionnaire ###########
 saiq02 = load_instrument("abcd_saiq02",abcd_files_path)
+saiq02$sai_p_select_language___1 = NULL
 # saiq02$sai_p_lax_school[saiq02$sai_p_lax_school == 11] = 1
 
-saiq02$sai_total_activities_p = rowSums(saiq02[,grep("sai_p_activities___(?!29)", colnames(saiq02), perl = T)])
-saiq02 = saiq02[,grep("src|interview|sex|event|sai_p_activities___(?!29)|sai_total", colnames(saiq02), perl = T)]
+# saiq02$sai_total_activities_p = rowSums(saiq02[,grep("sai_p_activities___(?!29)", colnames(saiq02), perl = T)])
+# View(describe(saiq02))
+saiq02 = saiq02[,grep("src|interview|sex|event|sai_p_activities___|sai_p_(read|lmusic)$", colnames(saiq02))]
 
 
 ########### Longitudinal Parent Sports and Activities Involvement Questionnaire ###########
 lpsaiq = load_instrument("abcd_lpsaiq01",abcd_files_path)
 lpsaiq$sai_l_p_select_language___1 = NULL
 
-lpsaiq[lpsaiq == 999] = NA
-
-lpsaiq$sai_total_activities_l_p = rowSums(lpsaiq[,grep("sai_p_activities_l___(?!29)",colnames(lpsaiq), perl = T)])
-lpsaiq = lpsaiq[,grep("src|interview|sex|event|sai_p_activities_l___(?!29)|sai_total", colnames(lpsaiq), perl = T)]
+# lpsaiq[lpsaiq == 999] = NA
+# View(describe(lpsaiq))
+# lpsaiq$sai_total_activities_l_p = rowSums(lpsaiq[,grep("sai_p_activities_l___(?!29)",colnames(lpsaiq), perl = T)])
+lpsaiq = lpsaiq[,grep("src|interview|sex|event|sai_p_activities_l___|sai_p_(lmusic|read)_l$", colnames(lpsaiq))]
 
 
 ### combine the 2 instruments 
 colnames(lpsaiq) = sub("_l_", "_", colnames(lpsaiq))
+colnames(lpsaiq) = sub("_l$", "", colnames(lpsaiq))
 saiq = rbind.fill(saiq02, lpsaiq)
 describe(saiq)
-saiq_wide = get_wide_data(saiq)
 
 
 ########### Child Nutrition Assessment (by Parent) ###########
@@ -45,22 +54,21 @@ cna = load_instrument("abcd_cna01",abcd_files_path)
 cna$cna_p_select_language___1 = NULL
 cna[cna == 999] = NA
 describe(cna)
-cna_wide = get_wide_data(cna)
 
 
 ########### Youth Block Food Screen ###########
 #TODO ask from ABCD for more information about the instrument
-bkfs = load_instrument("abcd_bkfs01",abcd_files_path)
-bkfs$ra_confirm = NULL
-bkfs$bkfs_select_language = NULL
-bkfs[bkfs == 777] = NA
+# bkfs = load_instrument("abcd_bkfs01",abcd_files_path)
+# bkfs$ra_confirm = NULL
+# bkfs$bkfs_select_language = NULL
+# bkfs[bkfs == 777] = NA
+# 
+# describe(bkfs)
 
-describe(bkfs)
-bkfs_wide = get_wide_data(bkfs)
 
 ########### Youth Screen Time Survey ###########
 stq = load_instrument("abcd_stq01",abcd_files_path)
-stq[,grep("_(dk|min)$", colnames(stq), value = T)] = NULL
+stq[,grep("_(dk|min)$", colnames(stq))] = NULL
 
 stq[stq == -1] = NA
 stq$screentime_admin = NULL
@@ -97,7 +105,8 @@ stq[,c("screen11_wknd_y", "screentime_12_wknd_hr")] = NULL
 stq[,c("screen12_wknd_y", "screentime_14_wknd_hr")] = NULL
 
 View(describe(stq))
-stq_wide = get_wide_data(stq)
+
+#TODO: trim screentime_smq_followers in each sub sample separately 
 
 
 ########### Parent Screen Time Survey ###########
@@ -105,15 +114,18 @@ stq01 = load_instrument("stq01",abcd_files_path)
 stq01[,c("scrtime_p_select_lang___1","screentime_scrn_media_p__777", "screentime_start_time_p")] = NULL
 
 # clean "refuse to answer"
-# TODO: SHORT qestions are well being and not exposome
 stq01[stq01 == 777] = NA
-temp = stq01[,grep("_(short|online)_",colnames(stq01), value = T)]
-temp[temp == 6] = NA
-stq01[,grep("_(short|online)_",colnames(stq01), value = T)] = temp
+
+# TODO: these qestions are not exposome. they are psychopathology 
+# temp = stq01[,grep("_(short|online)_",colnames(stq01))]
+# temp[temp == 6] = NA
+# stq01[,grep("_(short|online)_",colnames(stq01), value = T)] = temp
+
 
 # remove not exposome 
-stq01[,grep("_online_",colnames(stq01), value = T)] = NULL
-stq01[,grep("_min",colnames(stq01), value = T)] = NULL
+stq01[,grep("_(short|online)_",colnames(stq01))] = NULL
+stq01[,grep("_min",colnames(stq01))] = NULL
+
 
 # collapse same questions, different timepoints
 stq01$screentime_wkdy_hrs = ifelse(!is.na(stq01$screentime1_p_hours), stq01$screentime1_p_hours, stq01$screentime_1_wkdy_hrs_p)
@@ -125,17 +137,19 @@ stq01$screentime_device_cell_age_p[which(stq01$screentime_device_cell_age_p*12 >
 
 #change value range to no -> sometimes -> yes
 stq01$screentime_device_cell_no_p = round(stq01$screentime_device_cell_no_p /2 + stq01$screentime_device_cell_no_p %% 2)
+stq01$screentime_device_cell_no_p = ifelse(!is.na(stq01$screentime_device_cell_no_p ) & stq01$screentime_device_cell_no_p == 0,0, 1)
 
-View(describe(stq01))
-stq01_wide = get_wide_data(stq01)
+stq01$screentime_device_cell_p = NULL
+(describe(stq01))
 
 
 ########### Parent Sleep Disturbance Scale for Children ###########
 sds = load_instrument("abcd_sds01",abcd_files_path)
 sds$sleep_dis_select_language___1 = NULL
+sds$sleepdisturb1_p_b = ifelse(sds$sleepdisturb1_p == 1, 1, 0)
+sds = sds[,grep("src|inter|event|sex|_b$", colnames(sds))]
 describe(sds)
 
-sds_wide = get_wide_data(sds)
 
 ########### Youth Substance Use Attitudes ###########
 ysua = load_instrument("abcd_ysua01",abcd_files_path)
@@ -155,8 +169,13 @@ colnames(ysu02_peer_deviance) = sub("(?<=_[1-9])_[^_]+$", "", colnames(ysu02_pee
 colnames(ysua) = sub("_l$", "", colnames(ysua))
 
 peer_deviance = rbind.fill(ysu02_peer_deviance, ysua)
+
+col_names = grep("peer_deviance", colnames(peer_deviance), value = T)
+col_names_b = paste0(col_names, "_b")
+peer_deviance[, col_names_b] = ifelse(peer_deviance[, col_names] == 0, 0,1)
+peer_deviance[, col_names] = NULL
+
 describe(peer_deviance)
-peer_deviance_wide = get_wide_data(peer_deviance)
 
 
 ###########  Youth Substance Use Introduction and Patterns ###########
@@ -174,8 +193,35 @@ ind_to_fix = grep("isip_(.*)_2", colnames(ysu02))
 colnames(ysu02)[ind_to_fix] = sub("_2", "", colnames(ysu02)[ind_to_fix])
 
 ysu = rbind.fill(ysu02, ysuip)
-ysu_wide = get_wide_data(ysu)
-View(describe(ysu_wide))
+
+ysu = ysu[, colSums(!is.na(ysu))> 3000]
+ysu$caff_max_type = NULL
+View(describe(ysu))
+
+ysu[,c("interview_date", "interview_age")] = NULL
+
+########### merge all tables ###########
+lifestyle  = merge(yrb, saiq, all = T)
+lifestyle  = merge(lifestyle, cna, all = T)
+# lifestyle  = merge(lifestyle, stq)
+lifestyle  = merge(lifestyle, stq01, all = T)
+lifestyle  = merge(lifestyle, sds, all = T)
+lifestyle  = merge(lifestyle, peer_deviance, all = T)
+lifestyle  = merge(lifestyle, ysu, all = T)
+
+# remove 3 year follow up and empty columns
+lifestyle = lifestyle[lifestyle$eventname != "3_year_follow_up_y_arm_1", ]
+lifestyle = lifestyle[, colSums(is.na(lifestyle)) != nrow(lifestyle)]
+lifestyle = lifestyle[, colSums(is.na(lifestyle)) < 3515 ]
+col_to_keep = which(sapply(lifestyle, sd, na.rm = T) != 0)
+lifestyle = lifestyle[, c("src_subject_id","eventname", "sex","interview_date", names(col_to_keep))]
+
+
+lifestyle$sex = NULL
+write.csv(lifestyle, "data/lifestyle_item.csv", row.names = F, na = "")
+
+
+
 
 
 

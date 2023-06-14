@@ -1,5 +1,4 @@
 library(data.table)
-library(readxl)
 library(ggplot2)
 library(ggrepel)
 library(stringr) 
@@ -53,10 +52,10 @@ manhplot <- ggplot(dat, aes(x = position, y = -log10(fdr), color = as.factor(ord
                     # label.padding = unit(.65, "lines"),
                     # point.padding = unit(0, 'lines'),
                     min.segment.length = unit(0, "lines"),
-                    force = 1.5,
-                    # force_pull = 5#unit(0, 'lines'),
+                    force = 3,
+                    force_pull = 5,#unit(0, 'lines'),
                     # arrow = arrow(length = unit(0.25, 'cm'), type = 'closed')
-                    max.overlaps = 85
+                    max.overlaps = Inf
                     ) +
   
   # add p value horizontal line 

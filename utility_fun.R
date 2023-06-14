@@ -52,6 +52,7 @@ get_wide_data = function(data, max_features = NULL){
   #### TODO: delete
   # data = fix_release_4_sex(data)
   
+  data = as.data.frame(data)
   
   # remove 3 year follow up and empty columns 
   data = data[data$eventname != "3_year_follow_up_y_arm_1", ]
