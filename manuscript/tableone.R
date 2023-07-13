@@ -13,7 +13,6 @@ create_wide_dataset = function(df){
   df_wide = reshape(df[,c("src_subject_id", "sex", "SA_y","timepoint", "matched_group")], direction = "wide", idvar = c("src_subject_id", "sex", "matched_group"), timevar = "timepoint", sep = "__")
   setDT(df_wide)
   
-  # in the long dataset we had all kids
   df_wide[, SA_y_ever:={
     fcase(
       SA_y__2 == 1 | SA_y__1 == 1 | SA_y__baseline == 1, 1,
@@ -21,6 +20,7 @@ create_wide_dataset = function(df){
       default = NA
     )
   }]
+  
   
   ### calculate the mean diff between 2 year and both 1 year and baseline
   # mean_baseline_2year = age_site_wide[, mean(interview_age__2 - interview_age__baseline, na.rm = T)]
@@ -52,7 +52,7 @@ df = rbind.fill(train_wide,test_wide)
 vars = colnames(df)[-c(1,3)]
 
 ## Create TableOne
-tab <- CreateTableOne(vars = vars, data = df,  factorVars = vars , strata = "race", addOverall = T)
+tab <- CreateTableOne(vars = vars, data = df,  factorVars = vars , strata = "matched_group", addOverall = T)
 table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
 write.csv(table1, file = "outputs/Table1.csv")
 

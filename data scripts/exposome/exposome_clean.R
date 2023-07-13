@@ -1,5 +1,6 @@
 library(psych)
 library(plyr)
+library(janitor)
 
 source("config.R")
 source("utility_fun.R")
@@ -48,7 +49,7 @@ pmq01 = load_instrument("pmq01",abcd_files_path)
 
 col_names = grep("parent_monitor", colnames(pmq01), value = T)
 col_names_b = paste0(col_names, "_b")
-pmq01[, col_names_b] = ifelse(pmq01[, col_names] == 5, 1,0)
+pmq01[, col_names_b] = ifelse(pmq01[, col_names] >= 4, 1,0)
 pmq01[, col_names] = NULL
 
 describe(pmq01)
@@ -56,7 +57,7 @@ describe(pmq01)
 
 ########### Youth Neighborhood Safety/Crime ###########
 nsc01 = load_instrument("abcd_nsc01",abcd_files_path)
-nsc01$neighborhood_crime_y_b = ifelse(nsc01$neighborhood_crime_y == 5, 1, 0)
+nsc01$neighborhood_crime_y_b = ifelse(nsc01$neighborhood_crime_y >= 4 , 1, 0)
 nsc01$neighborhood_crime_y = NULL
 describe(nsc01)
 
@@ -67,7 +68,7 @@ pnsc01$nei_p_select_language___1 = NULL
 
 col_names = grep("neighborhood", colnames(pnsc01), value = T)
 col_names_b = paste0(col_names, "_b")
-pnsc01[, col_names_b] = ifelse(pnsc01[, col_names] == 5, 1,0)
+pnsc01[, col_names_b] = ifelse(pnsc01[, col_names] >= 4, 1,0)
 pnsc01[, col_names] = NULL
 
 describe(pnsc01)
@@ -78,19 +79,15 @@ yle01 = load_instrument("abcd_yle01",abcd_files_path)
 yle01$ple_admin = NULL
 yle01 = yle01[,!grepl("_past_|_fu(2)?_y$", colnames(yle01))]
 
-yle01[yle01 ==6 | yle01 ==7 ] = NA
-
-describe(yle01)
+describe(yle01[yle01$eventname != "3_year_follow_up_y_arm_1",])
 
 
 ########### Parent Life Events ###########
 ple = load_instrument("abcd_ple01",abcd_files_path)
 ple$ple_p_select_language___1 = NULL
-ple = ple[,!grepl("_fu(2)?_p$", colnames(ple))]
+ple = ple[,!grepl("_past(_|$)|_fu(2)?_p$|_p_p", colnames(ple))]
 
-ple[ple ==6 | ple ==7 ] = NA
-
-# View(describe(ple))
+describe(ple)
 
 
 ########### Parent Community Risk and Protective Factors ###########
@@ -117,7 +114,7 @@ pxccp01$comc_phenx_select_language = NULL
 
 col_names = grep("comc_phenx", colnames(pxccp01), value = T)
 col_names_b = paste0(col_names, "_b")
-pxccp01[, col_names_b] = ifelse(pxccp01[, col_names] == 5, 1,0)
+pxccp01[, col_names_b] = ifelse(pxccp01[, col_names] >= 4, 1,0)
 pxccp01[, col_names] = NULL
 
 describe(pxccp01)
@@ -170,6 +167,7 @@ dhx01$devhx_low_birth_weight = ifelse(dhx01$birth_weight_lbs_tot < (2500/453.6),
 # dhx01[,c("devhx_3_p", "devhx_11_p", "devhx_20_p", "devhx_21_p", "birth_weight_lbs_tot")] = NULL
 dhx01[,c("devhx_3_p", "devhx_caffeine_11", "devhx_20_p", "devhx_21_p", "birth_weight_lbs_tot")] = NULL
 
+# this instrument wil be merged with all timepoints, not only baseline 
 dhx01[,c("eventname", "interview_age", "interview_date")] = NULL
 # View(describe(dhx01))
 
@@ -202,9 +200,14 @@ describe(crpbi)
 
 ########### Parental Rules on Substance Use ###########
 prq = load_instrument("prq01",abcd_files_path)
-prq = prq[,grepl("src|sex|event|interview|_q(1|4|7)$", colnames(prq))]
+prq$pr_select_language___1 = NULL
+# prq = prq[,grepl("src|sex|event|interview|_q(1|4|7)$", colnames(prq))]
 
-col_names = grep("parent_rules", colnames(prq), value = T)
+prq$parent_rules_q3[prq$parent_rules_q3 == 4] = NA
+prq$parent_rules_q6[prq$parent_rules_q6 == 4] = NA
+prq$parent_rules_q9[prq$parent_rules_q9 == 4] = NA
+
+col_names = grep("_q(1|4|7)$", colnames(prq), value = T)
 col_names_b = paste0(col_names, "_b")
 prq[, col_names_b] = ifelse(prq[, col_names] > 1, 1,0)
 prq[, col_names] = NULL
@@ -241,12 +244,16 @@ describe(tbi)
 
 ########### Cyber Bully ###########
 cb = load_instrument("abcd_cb01",abcd_files_path)
+cb = cb[,grep("src|sex|event|interview|cybb_phenx_harm$", colnames(cb)) ]
+
 cb[cb == 777 | cb == 999] = NA
 describe(cb)
 
 
 ########### Peer Experiences Questionnaire ###########
 peq01 = load_instrument("abcd_peq01",abcd_files_path)
+peq01 = peq01[,grep("src|sex|event|interview|_vic$", colnames(peq01)) ]
+
 
 col_names = grep("peq_", colnames(peq01), value = T)
 col_names_b = paste0(col_names, "_b")
@@ -267,7 +274,7 @@ pbp01[, negative] = NULL
 
 positive = grep("athletes|church|good", colnames(pbp01), value = T)
 positive_b = paste0(positive, "_b")
-pbp01[, positive_b] = ifelse(pbp01[,positive] == 5, 1,0)
+pbp01[, positive_b] = ifelse(pbp01[,positive] >= 4, 1,0)
 pbp01[, positive] = NULL
 
 describe(pbp01)
@@ -275,24 +282,24 @@ describe(pbp01)
 
 ########### Youth Peer Network Health Protective Scaler ###########
 pnhps01 = load_instrument("abcd_pnhps01",abcd_files_path)
+
 pnhps01$pnh_substance[pnhps01$pnh_substance == 3] = 1
 pnhps01$pnh_help[pnhps01$pnh_help == 2] = 1
 pnhps01$pnh_encourage[pnhps01$pnh_encourage == 2] = 1
-pnhps01[,c("pnh_how_much_encourage", "pnh_how_much_help", "pnh_art_involve")] = NULL
+# pnhps01[,c("pnh_how_much_encourage", "pnh_how_much_help", "pnh_art_involve")] = NULL
 
 describe(pnhps01)
 
 
 ########### Other Resilience ###########
-# ysr = load_instrument("abcd_ysr01",abcd_files_path)
-# 
-# ysr[,grep("remote|admin|device", colnames(ysr))] = NULL
-# ysr[ysr == -1 | ysr == "Don't know"] = NA
-# ysr$resiliency5a_y[ysr$resiliency5a_y > 100] = 100
-# ysr$resiliency6a_y[ysr$resiliency6a_y > 100] = 100
-# 
-# describe(ysr)
-# ysr_wide = get_wide_data(ysr)
+ysr = load_instrument("abcd_ysr01",abcd_files_path)
+
+ysr[,grep("remote|admin|device", colnames(ysr))] = NULL
+ysr[ysr == -1 | ysr == "Don't know"] = NA
+ysr$resiliency5a_y[ysr$resiliency5a_y > 100] = 100
+ysr$resiliency6a_y[ysr$resiliency6a_y > 100] = 100
+
+describe(ysr)
 
 
 ########### Youth Substance Use Attitudes ###########
@@ -329,6 +336,7 @@ describe(occsp01)
 library("fastDummies")
 columns_to_dummy = grep("ocp", colnames(occsp01), value = T)
 occsp01 <- dummy_cols(occsp01, select_columns = columns_to_dummy, ignore_na = T, remove_selected_columns = T)
+describe(occsp01)
 
 
 ########### merge all tables ###########
@@ -353,13 +361,13 @@ exposome_set = merge(exposome_set, cb, all =T)
 exposome_set = merge(exposome_set, peq01, all =T)
 exposome_set = merge(exposome_set, pbp01, all =T)
 exposome_set = merge(exposome_set, pnhps01, all =T)
-# exposome_set = merge(exposome_set, ysr, all =T)
+exposome_set = merge(exposome_set, ysr, all =T)
 exposome_set = merge(exposome_set, peer_deviance, all =T)
 exposome_set = merge(exposome_set, occsp01, all =T)
 
 # remove 3 year follow up and empty columns
 exposome_set = exposome_set[exposome_set$eventname != "3_year_follow_up_y_arm_1", ]
-exposome_set = exposome_set[, colSums(is.na(exposome_set)) != nrow(exposome_set)]
+exposome_set = remove_empty(exposome_set, "cols")
 
 # add pregnancy/birth/development to all time points 
 exposome_set = merge(exposome_set, dhx01, all.x = T)

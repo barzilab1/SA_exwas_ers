@@ -43,7 +43,6 @@ lsstbi01 = lsstbi01[, !grepl("_nm_l$", colnames(lsstbi01))]
 ### combine the 2 instruments 
 colnames(lsstbi01) = sub("_l", "", colnames(lsstbi01))
 tbi = rbind.fill(tbi01, lsstbi01)
-tbi01$tbi_ss_worst1[is.na(tbi01$tbi_ss_worst1)] = 0
 describe(tbi)
 
 tbi$tbi_ss_nmrpi_b = ifelse(tbi$tbi_ss_nmrpi > 0 , 1, 0)
