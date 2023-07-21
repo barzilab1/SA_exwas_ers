@@ -60,23 +60,23 @@ run_models <- function(dataset_IV, dataset_DV){
 
 #### read data #### 
 individual_level_df <- read_csv("data/individual_level_train.csv")
-# structural_level_9 <- read_csv("data/structural_level_train_9.csv")
-
 suicide_train_df <- read_csv("data/DV_suicide_train.csv")
-
 
 
 #### run Exwas #### 
 individual_level_models = run_models(individual_level_df, suicide_train_df) 
-# structural_level_models = run_models(structural_level_9, suicide_train)
 
 
-#### add FDR correction ###
+#### add FDR correction ####
 individual_level_models$results$fdr = p.adjust(individual_level_models$results$p_value, "fdr")
-# structural_level_models$results$fdr = p.adjust(structural_level_models$results$P_value, "fdr")
 
 write.csv(file = paste0("outputs/individual_level_results.csv"), individual_level_models$results, row.names = F)
-# write.csv(file = paste0("outputs/structural_level_results.csv"), structural_level_models$results, row.names = F)
+
+
+
+
+
+
 
 
 
