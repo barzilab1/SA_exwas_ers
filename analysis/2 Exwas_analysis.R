@@ -62,10 +62,8 @@ run_models <- function(dataset_IV, dataset_DV){
 individual_level_df <- read_csv("data/individual_level_train.csv")
 suicide_train_df <- read_csv("data/DV_suicide_train.csv")
 
-
 #### run Exwas #### 
 individual_level_models = run_models(individual_level_df, suicide_train_df) 
-
 
 #### add FDR correction ####
 individual_level_models$results$fdr = p.adjust(individual_level_models$results$p_value, "fdr")

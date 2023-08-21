@@ -48,6 +48,44 @@ load_instrument <- function(file_name, file_path) {
 }
 
 
+# remove columns with low information/signal
+remove_low_signal_cols = function(df){
+  
+  for (timepoint in unique(df$eventname)) {
+    sub_dataset = df[df$eventname == timepoint,]
+    vari_delete = sapply(sub_dataset, \(x) is.numeric(x) && (sum(x != 0, na.rm = T) / sum(!is.na(x))  < 0.001) )
+    df[df$eventname == timepoint, names(which(vari_delete))] = NA
+  }
+  
+  df = remove_empty(df, which = "cols")
+}
+
+scale_features = function(df){
+  
+  ranges = sapply(df[,grep("src|^sex|event|inter", colnames(df), invert = T)], range, na.rm = T)
+  cols_to_scale = names(which(ranges[2,]-ranges[1,] > 1)) # 1 = binary, <1 = already scaled 
+  cols_to_scale_z = paste0(cols_to_scale, "_z")
+  df[,cols_to_scale_z] = scale(df[,cols_to_scale])
+  df[,cols_to_scale] = NULL
+  return(df)
+  
+}
+
+
+remove_outliers <- function(cols_to_check_outliers, df) {
+  for (col_name in cols_to_check_outliers) {
+    for (timepoint in unique(df$eventname)) {
+      # if no data in the current time point, skip 
+      if (sum(!is.na(df[df$eventname == timepoint, col_name])) == 0) {next} 
+      boxplot(df[df$eventname == timepoint, col_name], main = paste0(col_name,timepoint))
+      df[df$eventname == timepoint, col_name] = winsor(df[df$eventname == timepoint, col_name],trim=0.005)
+      boxplot(df[df$eventname == timepoint, col_name], main = paste0(col_name, "(winsor)"))
+    }
+  }
+  
+  return(df)
+}
+
 get_wide_data = function(data, max_features = NULL){
   #### TODO: delete
   # data = fix_release_4_sex(data)

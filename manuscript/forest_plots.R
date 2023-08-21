@@ -14,13 +14,13 @@ apatheme=theme_bw()+
         strip.text.y.right = element_text(angle = 0))
 
 
-dat = read_excel("~/Desktop/individual_level_results.xlsx")
-dat = read_excel("~/Desktop/structural_level_results.xlsx")
-# dat = read.csv("outputs/individual_level_results.csv")
-dat$feature = as.factor(dat$Description)
-dat$feature = reorder(dat$Description, dat$OR)
-dat$lowerci = as.numeric(dat$Lowerci_or)
-dat$upperci = as.numeric(dat$Upperci_or)
+# dat = read_excel("~/Desktop/individual_level_results.xlsx")
+dat = read.csv("outputs/individual_level_results.csv")
+dat = dat[dat$fdr< 0.05,]
+dat$feature = as.factor(dat$variable) #description 
+dat$feature = reorder(dat$variable, dat$or)
+dat$lowerci = as.numeric(dat$lowerci)
+dat$upperci = as.numeric(dat$upperci)
 # dat$Category  = factor(dat$Category, levels=c("Risk Factors","Protective Factors"  ))
 
 
@@ -30,7 +30,7 @@ dat = dat[order(dat$OR, decreasing = T),]
 
 #Make a plot called 'p', and map citation data to y-axis, effect sizes to x-axis
 #specify the min and max of the CIs, and give different shapes based on levels of tester
-p=ggplot(dat[1:67,], aes(y=feature, x=OR, xmin=lowerci, xmax=upperci))+ #, shape = tester
+p=ggplot(dat, aes(y=feature, x=or, xmin=lowerci, xmax=upperci))+ #, shape = tester
   #Add data points and color them black
   geom_point(color = 'black')+
   #Add 'special' points for the summary estimates, by making them diamond shaped
@@ -45,13 +45,13 @@ p=ggplot(dat[1:67,], aes(y=feature, x=OR, xmin=lowerci, xmax=upperci))+ #, shape
   geom_vline(xintercept=1, color='black', linetype='dashed')+
   #Create sub-plots (i.e., facets) based on levels of setting
   #And allow them to have their own unique axes (so authors don't redundantly repeat)
-  facet_grid(Category~., scales= 'free', space='free') + 
+  # facet_grid(Category~., scales= 'free', space='free') + 
   #Apply my APA theme
   apatheme
 p
 
 #Save plot in your working directory
-ggsave(p, file='plots/individual_risk.png', width = 10, height=10, dpi=300)
+ggsave(p, file='plots/forest_plot.png', width = 10, height=10, dpi=300)
 
 
 

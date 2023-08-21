@@ -3,7 +3,6 @@ library(ggplot2)
 library(ggrepel)
 library(stringr) 
 
-# dat = read_excel("~/Desktop/results_sep_19.xlsx")
 dat = read.csv("~/Desktop/individual_level_results.csv")
 
 setDT(dat)

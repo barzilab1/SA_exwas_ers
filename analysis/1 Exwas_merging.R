@@ -1,6 +1,8 @@
 library(janitor)
 library(qgraph)
+library(psych)
 library(caret)
+library(missForest)
 
 source("config.R")
 source("utility_fun.R")
@@ -44,6 +46,8 @@ exposome_sum <- read.csv("data/exposome_sum_set.csv")
 exposome_item <- read.csv("data/exposome_set_item.csv")
 lifestyle <- read.csv("data/lifestyle_item.csv")
 
+geo_data <- read.csv("data/geo_data.csv")
+
 # merge all exposome features
 individual_level = merge(demographics, exposome_sum)
 individual_level = merge(individual_level, exposome_item)
@@ -51,7 +55,7 @@ individual_level = merge(individual_level, lifestyle)
 
 # remove observations with no DV
 individual_level = merge(individual_level, suicide_site[,c("src_subject_id", "eventname")])
-
+structural_level = merge(geo_data, suicide_site[,c("src_subject_id", "eventname")])
 
 # remove features with more than 10% missing data 
 remove_cols_with_na = function(df){
@@ -68,25 +72,17 @@ remove_cols_with_na = function(df){
 }
 
 individual_level = remove_cols_with_na(individual_level)
+structural_level = remove_cols_with_na(structural_level)
 
 # remove columns with sd = 0
 # zero_sd_cols = sapply(individual_level, \(x) is.numeric(x) && sd(x, na.rm = T) == 0)
 # individual_level = individual_level[, !zero_sd_cols]
 
 
-# remove columns with low information/signal
-remove_low_signal_cols = function(df){
-  
-  for (timepoint in unique(df$eventname)) {
-    sub_dataset = df[df$eventname == timepoint,]
-    vari_delete = sapply(sub_dataset, \(x) is.numeric(x) && (sum(x != 0, na.rm = T) / sum(!is.na(x))  < 0.001) )
-    df[df$eventname == timepoint, names(which(vari_delete))] = NA
-  }
-  
-  df = remove_empty(df, which = "cols")
-}
+
 
 individual_level = remove_low_signal_cols(individual_level)
+structural_level = remove_low_signal_cols(structural_level)
 
 
 
@@ -97,16 +93,10 @@ individual_level_train = merge(individual_level, DV_suicide_train[,c("src_subjec
 cols_range = sapply(individual_level_train[,grep("src|^sex|event|inter", colnames(individual_level_train), invert = T)], range, na.rm = T)
 cols_to_check_outliers = names(which(cols_range[2,]-cols_range[1,] >= 6)) 
 
-# for (col_name in cols_to_check_outliers) {
-#    boxplot(individual_level_train[col_name], main = col_name)
-# }
 
-individual_level_train[, cols_to_check_outliers] = winsor(individual_level_train[, cols_to_check_outliers],trim=0.005)
 
-# for (col_name in cols_to_check_outliers) {
-#   boxplot(individual_level_train[col_name], main = paste0(col_name, "___1"))
-# }
 
+individual_level_train = remove_outliers(cols_to_check_outliers, individual_level_train)
 individual_level_train = remove_low_signal_cols(individual_level_train)
 
 
@@ -119,26 +109,9 @@ corr_featuers = findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbos
 individual_level_train[,corr_featuers] = NULL
 
 
-# res = matrix(NA, nrow = 490, ncol = 1)
-# for(i in c(1:406,408:490)){
-#   res[i,1] = tryCatch(cor_auto(corr_data[,c(i, 407)], ordinalLevelMax=8)[2,1], error = \(e) "ERROR" )
-# }
-
-View(describe(individual_level_train))
-
-scale_features = function(df){
-  
-  range = sapply(df[,grep("src|^sex|event|inter", colnames(df), invert = T)], range, na.rm = T)
-  cols_to_scale = names(which(range[2,]-range[1,] > 1)) # 1 = binary, <1 = already scaled 
-  cols_to_scale_z = paste0(cols_to_scale, "_z")
-  df[,cols_to_scale_z] = scale(df[,cols_to_scale])
-  df[,cols_to_scale] = NULL
-  return(df)
-  
-}
+View(as.data.frame(describe(individual_level_train)))
 
 individual_level_train = scale_features(individual_level_train)
-
 
 write.csv(file = "data/individual_level_train.csv", x = individual_level_train, row.names=F, na = "")
 
@@ -151,19 +124,11 @@ individual_level_test = merge(individual_level, DV_suicide_test[,c("src_subject_
 
 # clean outliers 
 cols_range = sapply(individual_level_test[,grep("src|^sex|event|inter", colnames(individual_level_test), invert = T)], range, na.rm = T)
-cols_to_check_outliers = names(which(cols_range[2,]-cols_range[1,] >= 6)) 
+cols_to_check_outliers_test = names(which(cols_range[2,]-cols_range[1,] >= 6)) 
 
-# for (col_name in cols_to_check_outliers) {
-#    boxplot(individual_level_test[col_name], main = col_name)
-# }
+individual_level_test = remove_outliers(cols_to_check_outliers_test, individual_level_test)
+individual_level_test = remove_low_signal_cols(individual_level_test)
 
-individual_level_test[, cols_to_check_outliers] = winsor(individual_level_test[, cols_to_check_outliers],trim=0.005)
-
-# for (col_name in cols_to_check_outliers) {
-#   boxplot(individual_level_test[col_name], main = paste0(col_name, "___1"))
-# }
-
-individual_level_test = scale_features(individual_level_test)
 
 write.csv(file = "data/individual_level_test.csv", x = individual_level_test, row.names=F, na = "")
 

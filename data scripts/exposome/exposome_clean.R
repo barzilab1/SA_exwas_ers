@@ -167,6 +167,11 @@ dhx01$devhx_low_birth_weight = ifelse(dhx01$birth_weight_lbs_tot < (2500/453.6),
 # dhx01[,c("devhx_3_p", "devhx_11_p", "devhx_20_p", "devhx_21_p", "birth_weight_lbs_tot")] = NULL
 dhx01[,c("devhx_3_p", "devhx_caffeine_11", "devhx_20_p", "devhx_21_p", "birth_weight_lbs_tot")] = NULL
 
+#remove the medications names 
+dhx01[,c("devhx_8_rxnorm_med1", "devhx_8_rxnorm_med2", "devhx_8_rxnorm_med3", "devhx_8_other1_name_oth", "devhx_8_other3_name_oth",
+         "devhx_9_med1_rxnorm", "devhx_9_med2_rxnorm", "devhx_9_med3_rxnorm", "devhx_9_med4_rxnorm", 
+         "devhx_9_med5_rxnorm", "devhx_9_other1_name_oth", "devhx_9_other2_name_oth")] = NULL
+
 # this instrument wil be merged with all timepoints, not only baseline 
 dhx01[,c("eventname", "interview_age", "interview_date")] = NULL
 # View(describe(dhx01))
@@ -296,8 +301,8 @@ ysr = load_instrument("abcd_ysr01",abcd_files_path)
 
 ysr[,grep("remote|admin|device", colnames(ysr))] = NULL
 ysr[ysr == -1 | ysr == "Don't know"] = NA
-ysr$resiliency5a_y[ysr$resiliency5a_y > 100] = 100
-ysr$resiliency6a_y[ysr$resiliency6a_y > 100] = 100
+# ysr$resiliency5a_y[ysr$resiliency5a_y > 100] = 100
+# ysr$resiliency6a_y[ysr$resiliency6a_y > 100] = 100
 
 describe(ysr)
 
@@ -372,7 +377,7 @@ exposome_set = remove_empty(exposome_set, "cols")
 # add pregnancy/birth/development to all time points 
 exposome_set = merge(exposome_set, dhx01, all.x = T)
 
-exposome_set$sex = NULL
+# exposome_set$sex = NULL
 write.csv(exposome_set, "data/exposome_set_item.csv", row.names = F, na = "")
 
 

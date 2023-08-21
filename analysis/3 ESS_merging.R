@@ -1,40 +1,118 @@
 library(readr)
+library(plyr)
+library(doParallel)
+library(janitor)
+library(data.table)
+library(missForest)
 
 source("config.R")
 
-##########################
-#### 1. calculate ERS ####
-##########################
 
+################################
+#### 1. impute testing data ####
+################################
 individual_level_test_df <- read_csv("data/individual_level_test.csv")
-individual_level_exwas_results <- read_csv("outputs/individual_level_results.csv")
+race <- read.csv("data/demo_race.csv")
 
+# convert  to factor
+race_b_features = grep("src|^sex|event|inter", colnames(race), invert = T, value = T)
+race[,race_b_features] = as.data.frame(lapply(race[,race_b_features], as.factor))
+
+ranges = sapply(individual_level_test_df[,grep("src|^sex|event|inter", colnames(individual_level_test_df), invert = T)], range, na.rm = T)
+binary_features = names(which(ranges[2,]-ranges[1,] == 1 )) 
+# ordinal_features = grep("screen1[3-4]_y|screentime_sq([3-9]|1[0-1])|physical_activity(1|2|5)_y", colnames(individual_level_test_df), value = T)
+
+individual_level_test_df[,binary_features] = as.data.frame(lapply(individual_level_test_df[,binary_features], as.factor))
+# individual_level_test_df[,ordinal_features] = as.data.frame(lapply(individual_level_test_df[,ordinal_features], factor, order = TRUE))
+
+
+dataset = merge(individual_level_test_df, race)
+
+
+# impute
+NPROCS = detectCores() 
+cl <- makeCluster(NPROCS-2)
+registerDoParallel(cl)
+
+set.seed(101)
+test_baseline = dataset[dataset$eventname == "baseline_year_1_arm_1",]
+test_baseline = remove_empty(test_baseline, which = "cols")
+test_baseline_imputed = missForest(test_baseline[,grep("src|event|date$|sex$", colnames(test_baseline), invert = T)], 
+                                   parallelize = 'forests')
+set.seed(101)
+test_1_year = dataset[dataset$eventname == "1_year_follow_up_y_arm_1",]
+test_1_year = remove_empty(test_1_year, which = "cols")
+test_1_year_imputed = missForest(test_1_year[,grep("src|event|date$|sex$", colnames(test_1_year), invert = T)], 
+                                 parallelize = 'variables')
+set.seed(101)
+test_2_year = dataset[dataset$eventname == "2_year_follow_up_y_arm_1",]
+test_2_year = remove_empty(test_2_year, which = "cols")
+test_2_year_imputed = missForest(test_2_year[,grep("src|event|date$|sex$", colnames(test_2_year), invert = T)], 
+                                 parallelize = 'variables')
+stopCluster(cl)
+
+test_baseline_imputed = cbind(test_baseline[,grep("src|event|date$|sex$", colnames(test_baseline))], test_baseline_imputed$ximp)
+test_1_year_imputed = cbind(test_1_year[,grep("src|event|date$|sex$", colnames(test_1_year))], test_1_year_imputed$ximp)
+test_2_year_imputed = cbind(test_2_year[,grep("src|event|date$|sex$", colnames(test_2_year))], test_2_year_imputed$ximp)
+
+dataset_test_imputed = rbind.fill(test_baseline_imputed, test_1_year_imputed, test_2_year_imputed)
+
+# View(as.data.frame(describe(dataset)))
+# View(as.data.frame(describe(dataset_test_imputed)))
+
+dataset_test_imputed[,binary_features] = as.data.frame(lapply(dataset_test_imputed[,binary_features], \(x) as.numeric(as.character(x))))
+dataset_test_imputed[,race_b_features] = as.data.frame(lapply(dataset_test_imputed[,race_b_features], \(x) as.numeric(as.character(x))))
+dataset_test_imputed = scale_features(dataset_test_imputed)
+
+
+##########################
+#### 2. calculate ERS ####
+##########################
+individual_level_exwas_results <- read_csv("outputs/individual_level_results.csv")
 individual_cut_off = individual_level_exwas_results[individual_level_exwas_results$fdr <= 0.05, c("variable", "coefficients")]
 
-### TODO - should we impute???? - YES
 
 # calculate scores
-individual_level_test_df$exwas_individual_sum = apply(individual_level_test_df[,individual_cut_off$variable], 1 , function(r){
+dataset_test_imputed$exwas_individual_sum = apply(dataset_test_imputed[,individual_cut_off$variable], 1 , function(r){
   return(sum(r*individual_cut_off$coefficients, na.rm = T))
 })
 
-individual_level_test_df$exwas_individual_sum_z = scale(individual_level_test_df$exwas_individual_sum)[,1]
+dataset_test_imputed$exwas_individual_sum_z = scale(dataset_test_imputed$exwas_individual_sum)[,1]
 
 
 
 ###############################################
-#### 2. add FH and PRS to the testing data ####
+#### 3. add FH and PRS to the testing data ####
 ###############################################
-suicide_test <- read_csv("data/DV_suicide_test.csv")
-race <- read.csv("data/demo_race.csv")
 FH_suicide <- read_csv("data/family_history.csv")
+suicide_test <- read_csv("data/DV_suicide_test.csv")
 genetics <- read_csv(file.path(abcd_genetics_path, "genetic.csv"))
+lgbt <- read_csv("data/lgbtqia.csv")
 
 dataset = merge(suicide_test, race, all.x = T)
 dataset = merge(dataset, FH_suicide[,c("src_subject_id", "famhx_ss_momdad_scd_p")], all.x = T)
+dataset = merge(dataset, lgbt[,c("src_subject_id", "eventname", "LGBT", "LGBT_inclusive")])
 dataset = merge(dataset, genetics[,c("src_subject_id", "suicide_PRSice_Pt0_05", "genetic_afr")], all.x = T)
-dataset = merge(dataset, individual_level_test_df[,c("src_subject_id", "eventname", "interview_age", "sex", 
+dataset = merge(dataset, dataset_test_imputed[,c("src_subject_id", "eventname", "interview_age", "sex",
                                                      "exwas_individual_sum", "exwas_individual_sum_z")] )
+setDT(dataset)
+dataset[, race_eth := {
+  fcase(
+    ethnicity_hisp == 0 & race_black == 1 , "NH-Black",
+    ethnicity_hisp == 0 & race_white == 1 , "NH-White",
+    ethnicity_hisp == 1 , "Hispanic"
+  )
+}]
+dataset[,table(race_eth, ethnicity_hisp, useNA = "ifany")]
+
+dataset[, time := {
+  fcase(
+    eventname == "baseline_year_1_arm_1", "baseline",
+    eventname == "1_year_follow_up_y_arm_1", "1 year follow up",
+    eventname == "2_year_follow_up_y_arm_1", "2 year follow up"
+  )
+}]
+
 
 write.csv(file = paste0("data/dataset_ESS.csv"), dataset, row.names = F)
 

@@ -62,15 +62,17 @@ describe(cna)
 cna_cross_timepoints = cna[, c("src_subject_id", "sex", "cna_15_p", "cna_16_p")]
 cna[, c("cna_15_p", "cna_16_p")] = NULL
 
+
 ########### Youth Block Food Screen ###########
 #TODO ask from ABCD for more information about the instrument
-bkfs = load_instrument("abcd_bkfs01",abcd_files_path)
-bkfs$ra_confirm = NULL
-bkfs$bkfs_select_language = NULL
-bkfs[bkfs == 777] = NA
+# bkfs = load_instrument("abcd_bkfs01",abcd_files_path)
+# bkfs$ra_confirm = NULL
+# bkfs$bkfs_select_language = NULL
+# bkfs[bkfs == 777] = NA
 
 # View(describe(bkfs[bkfs$eventname == "2_year_follow_up_y_arm_1", ]))
 
+#odd values - no response from NIH on this data
 
 ########### Youth Screen Time Survey ###########
 stq = load_instrument("abcd_stq01",abcd_files_path)
@@ -106,7 +108,7 @@ stq$screentime_12_wknd_br = ifelse(!is.na(stq$screen11_wknd_y), stq$screen11_wkn
 stq$screentime_14_wknd_br = ifelse(!is.na(stq$screen12_wknd_y), stq$screen12_wknd_y, stq$screentime_14_wknd_hr)
 
 # as the range between time points is different, use the range of 0-4, with no fraction of time 
-screentime_vars = grep("_(wkdy|wknd)_(br|hr)$", colnames(stq), value = T)
+screentime_vars = grep("_(wkdy|wknd)_br$", colnames(stq), value = T)
 stq[screentime_vars] = lapply(stq[screentime_vars], \(x) ifelse(x > 4, 4, 
                                                                 ifelse(x < 1, 0 , x)))
 
@@ -124,7 +126,7 @@ stq[,c("screen11_wknd_y", "screentime_12_wknd_hr")] = NULL
 stq[,c("screen12_wknd_y", "screentime_14_wknd_hr")] = NULL
 
 
-# number of accounts on each platform: trim outliers  3+ ==> 3 
+# number of accounts on each platform: we don;t care if more than 3+ ==> 3 
 accounts_number = grep("screentime_smq_(?!(foll|use|acc|sec|soc)).*$", colnames(stq), value = T, perl = T)
 stq[accounts_number] = lapply(stq[accounts_number], \(x) ifelse(x > 3, 3, x))
 # apply(stq[accounts_number], 2, boxplot)
@@ -137,8 +139,8 @@ stq <- dummy_cols(stq, "screentime_smq_use_most", ignore_na = T, remove_selected
 stq$screentime_smq_account = stq$screentime_smq_account %% 2 
 
 #screentime_smq_followers and screentime_smq_following  - according to David
-stq$screentime_smq_followers = ifelse(stq$screentime_smq_followers > 5000, 5000 , stq$screentime_smq_followers)
-stq$screentime_smq_following = ifelse(stq$screentime_smq_following > 5000, 5000 , stq$screentime_smq_following)
+stq$screentime_smq_followers = ifelse(stq$screentime_smq_followers > 5000, NA , stq$screentime_smq_followers)
+stq$screentime_smq_following = ifelse(stq$screentime_smq_following > 5000, NA , stq$screentime_smq_following)
 
 # screentime_sq: What do you usually do with your phone when you are ready to go to sleep?
 stq <- dummy_cols(stq, "screentime_sq2", ignore_na = T, remove_selected_columns = T)
@@ -237,7 +239,7 @@ ysu[,c("interview_date", "interview_age")] = NULL
 lifestyle  = merge(yacc, yrb, all = T)
 lifestyle  = merge(lifestyle, saiq, all = T)
 lifestyle  = merge(lifestyle, cna, all = T)
-lifestyle  = merge(lifestyle, bkfs, all = T)
+# lifestyle  = merge(lifestyle, bkfs, all = T)
 lifestyle  = merge(lifestyle, stq, all = T)
 lifestyle  = merge(lifestyle, stq01, all = T)
 lifestyle  = merge(lifestyle, sds, all = T)

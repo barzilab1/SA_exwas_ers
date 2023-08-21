@@ -67,10 +67,10 @@ demographics_set[ demo_race_a_p___25 == 1, race_other:= 1 ]
 
 # Mixed
 demographics_set[, race_mixed:= (race_white + race_black + race_asian + race_aian + race_nhpi + race_other)]
-demographics_set[, table(race_mixed, useNA = "if")]
+demographics_set[, table(race_mixed, useNA = "ifany")]
 demographics_set[ race_mixed <= 1, race_mixed:= 0]
 demographics_set[ race_mixed > 1, race_mixed:= 1]
-demographics_set[, table(race_mixed, useNA = "if")]
+demographics_set[, table(race_mixed, useNA = "ifany")]
 
 demographics_set[, grep("^demo_race_a_p___",colnames(demographics_set), value = T) := NULL]
 

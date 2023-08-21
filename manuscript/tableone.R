@@ -10,7 +10,8 @@ test = read.csv(file = "data/DV_suicide_test.csv")
 create_wide_dataset = function(df){
   df$timepoint = sub("_year.*", "", df$eventname)
   
-  df_wide = reshape(df[,c("src_subject_id", "sex", "SA_y","timepoint", "matched_group")], direction = "wide", idvar = c("src_subject_id", "sex", "matched_group"), timevar = "timepoint", sep = "__")
+  df_wide = reshape(df[,c("src_subject_id", "sex", "SA_y","timepoint", "matched_group","age" )], direction = "wide", 
+                    idvar = c("src_subject_id", "sex", "matched_group"), timevar = "timepoint", sep = "__")
   setDT(df_wide)
   
   df_wide[, SA_y_ever:={
@@ -38,6 +39,8 @@ create_wide_dataset = function(df){
   return(df_wide)
 }
 
+train$age = train$interview_age / 12
+test$age = test$interview_age / 12
 
 train_wide = create_wide_dataset(train)
 test_wide = create_wide_dataset(test)
@@ -52,9 +55,18 @@ df = rbind.fill(train_wide,test_wide)
 vars = colnames(df)[-c(1,3)]
 
 ## Create TableOne
-tab <- CreateTableOne(vars = vars, data = df,  factorVars = vars , strata = "matched_group", addOverall = T)
+tab <- CreateTableOne(vars = vars, data = df,  factorVars = vars[grep("age", vars, invert = T)] , strata = "SA_y_ever", addOverall = T)
 table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
 write.csv(table1, file = "outputs/Table1.csv")
 
+# only training 
+train$age = train$interview_age / 12
+tab <- CreateTableOne(vars = c("interview_age", "age"), data = train, strata = "eventname", addOverall = T)
+tab
 
+
+# entire cohort
+tab <- CreateTableOne(vars = colnames(demo_race)[-1], data = demo_race  )
+table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
+table1
 
