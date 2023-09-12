@@ -75,5 +75,5 @@ p
 ggsave(filename ="plots/differential_exposure.png", p, width = 20, height = 15, dpi=700)
 
 
-t.test( exwas_individual_sum_z~sex,  dataset[time == "1 year follow up",] )
-wilcox.test(exwas_individual_sum_z~sex,  dataset[time == "1 year follow up",]) 
+t.test( exwas_individual_sum_z~sex,  dataset, [time == "2 year follow up",] )
+wilcox.test(exwas_individual_sum_z~sex,  dataset[time == "2 year follow up",]) 

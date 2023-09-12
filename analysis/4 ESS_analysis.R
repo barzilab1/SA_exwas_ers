@@ -40,9 +40,46 @@ anova(mod1_FH, mod2_FH, test="Chisq")
 
 anova(mod1, mod1_FH, test="Chisq") 
 anova(mod2, mod2_FH, test="Chisq")
-anova(mod3, mod3_FH, test="Chisq")
-anova(mod4, mod4_FH, test="Chisq")
-anova(mod5, mod5_FH, test="Chisq")
+
+
+
+
+
+
+## check quntailes 
+quantiles_ers_control =  quantile(dataset$exwas_individual_sum_z[dataset$SA_y == 0], seq(0,1,0.2))
+dataset$q_group = findInterval(dataset$exwas_individual_sum_z, quantiles_ers_control, rightmost.closed = T)
+dataset$q_group[dataset$q_group ==6] = 5
+dataset$q_group = factor(dataset$q_group, levels = c(3,1,2,4,5))
+
+modq1 = glmer(paste0("SA_y ~ q_group + ", paste(covs, collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
+
+
+tab_model(modq1,
+          show.intercept = F, show.ngroups = T, show.aic = T, show.r2 = T)
+
+dataset_plot = data.frame(
+  Quintiles = seq(1:5),
+  OR = c(0.06,0.63, 1, 1.24, 4.76),
+  ci_lower = c(0.01,0.30,NA,0.67,2.82),
+  ci_upper = c(0.46,1.33,NA,2.27,8.05)
+)
+
+library(ggplot2)
+ggplot(dataset_plot, aes(x=Quintiles, y=OR)) +
+  geom_point(shape=95, size = 7)+
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.025) +
+  scale_y_continuous( name = "Odds Ratio",
+                      limits = c(0, NA),
+                      breaks = seq(0,8.25,1),
+                      labels = c(0,"",2,"",4,"",6,"",8),
+                      sec.axis = sec_axis(trans = ~.*1,
+                                          breaks = seq(0,8.25,1),
+                                          labels = c(0,"",2,"",4,"",6,"",8)),
+                     expand = expansion(mult = c(0, 0.1))
+                     )+
+  theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
 
 
 
@@ -82,8 +119,8 @@ tab_model(mod2, mod2_lgbt_0, mod2_lgbt_1,
 
 #### plots ####
 library(ggplot2)
-x_main = "Individual sum score"
-y_main = "Probability of suicide attempt"
+x_main = "ERS"
+y_main = "Probability of Suicide Attempt"
 
 df = dataset[complete.cases(dataset$ethnicity_hisp),]
 df$Pedicted_SA_probability =  predict(mod2,type = "response")
@@ -91,10 +128,13 @@ df$Pedicted_SA_probability =  predict(mod2,type = "response")
 ### lgbt
 df = df[complete.cases(df$LGBT_inclusive),]
 df$category = factor(df$LGBT_inclusive, labels = c("NON LGBT", "LGBT"))
+
 p=ggplot(data=df, aes(x=exwas_individual_sum_z, y=Pedicted_SA_probability, group = category, color=category)) +
   geom_smooth(method=lm,  level=0.95, aes(fill = category))+
   labs(x= x_main, y = y_main) +
-  theme(legend.title=element_blank())
+  theme_minimal() +
+  theme(legend.title=element_blank(), legend.position = c(.9, .1))
+  
 p
 
 ggsave(filename ="plots/lgbt.png", p, width = 20, height = 15, dpi=700)
