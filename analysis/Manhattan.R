@@ -1,23 +1,39 @@
 library(data.table)
+library(readr)
 library(ggplot2)
 library(ggrepel)
-library(stringr) 
+library(stringr)
+library(readxl)
 
-dat = read.csv("~/Desktop/individual_level_results.csv")
+
+tagging = read_excel(file.path(project_path, "ExWAS ABCD Dictionary.xlsx"))
+
+exwas_results <- read_csv("outputs/individual_level_results.csv")
+exwas_results$variable = gsub("_(b|z)$", "", exwas_results$variable)
+#after removing _z there is also _br
+exwas_results$variable = gsub("_br$", "", exwas_results$variable)
+
+dat = merge(exwas_results[, c("variable", "fdr")], tagging[,c("var_name", "Category")], 
+            by.x = "variable", by.y = "var_name", all.x = T)
+# View(dat[is.na(dat$Category),])
+dat$Category[is.na(dat$Category)] = "Lifestyle"
+N = (sum(dat$fdr < 5e-5))
+new_fdr = runif(N, 5e-05-1e-5, 5e-05+1e-5)
+dat$fdr[dat$fdr < 5e-5] = new_fdr
 
 setDT(dat)
 dat[,ord := {
   fcase(
-    Category == "Neighborhood", 1,
-    Category == "Family", 2,
-    Category == "Prenatal", 3,
-    Category == "Peers", 4,
-    Category == "Trauma", 5,
-    Category == "School", 6,
-    default = NA
+    Category == "Neighborhood", 7,
+    Category == "Family", 6,
+    Category == "Prenatal", 1,
+    Category == "School\\Peers",5 ,
+    Category == "Trauma", 2,
+    Category == "Substance", 3,
+    Category == "Lifestyle", 4
   )
 }]
-dat = dat[order(P_value)]
+dat = dat[order(fdr)]
 dat = dat[order(ord)]
 dat[, position := 1:.N]
 dat[, center := mean(position), by = Category]
@@ -25,8 +41,9 @@ dat[, center := mean(position), by = Category]
 # dat[, is_highlight := ifelse(Feature_code %in% c("separated_or_divorced_ever", "dim_matrix_q3__1"), "yes", "no")]
 # dat[, is_annotate := {ifelse(-log10(P_value)>15, "yes", "no")}]
 
-ylim = dat[,abs(floor(log10(min(P_value)))) + 2]
+ylim = dat[,abs(floor(log10(min(fdr)))) + 2]
 setDF(dat)
+
 
 sig = c(0.05)
 breaks = c(0,.05, .005, .0005, 5e-05, 5e-10, 5e-15, 5e-20, 5e-25)
@@ -34,6 +51,8 @@ breaks = c(0,.05, .005, .0005, 5e-05, 5e-10, 5e-15, 5e-20, 5e-25)
 labels = c("0",".05", ".005", ".0005", "5e-05", "5e-10", "5e-15", "5e-20", "5e-25")
 names(labels) = c(0, -log10(c(.05, .005, .0005, .00005)))
 
+
+TEXT_SIZE = 30
 manhplot <- ggplot(dat, aes(x = position, y = -log10(fdr), color = as.factor(ord))) +
   # Show all points
   geom_point( size=1.5) +
@@ -46,16 +65,16 @@ manhplot <- ggplot(dat, aes(x = position, y = -log10(fdr), color = as.factor(ord
   
   # Add label using ggrepel to avoid overlapping
   # geom_label_repel( data=subset(dat, is_annotate=="yes"), aes(label=Feature_code), size=4) +
-  geom_label_repel( data=subset(dat, !is.na(description)), aes(label=description), size=8,
-                    # box.padding = unit(0, 'lines'),
-                    # label.padding = unit(.65, "lines"),
-                    # point.padding = unit(0, 'lines'),
-                    min.segment.length = unit(0, "lines"),
-                    force = 3,
-                    force_pull = 5,#unit(0, 'lines'),
-                    # arrow = arrow(length = unit(0.25, 'cm'), type = 'closed')
-                    max.overlaps = Inf
-                    ) +
+  # geom_label_repel( data=subset(dat, !is.na(description)), aes(label=description), size=8,
+  #                   # box.padding = unit(0, 'lines'),
+  #                   # label.padding = unit(.65, "lines"),
+  #                   # point.padding = unit(0, 'lines'),
+  #                   min.segment.length = unit(0, "lines"),
+  #                   force = 3,
+  #                   force_pull = 5,#unit(0, 'lines'),
+  #                   # arrow = arrow(length = unit(0.25, 'cm'), type = 'closed')
+  #                   max.overlaps = Inf
+  #                   ) +
   
   # add p value horizontal line 
   geom_hline(yintercept = -log10(sig), color = "black", linetype = "dashed") + 
@@ -67,11 +86,12 @@ manhplot <- ggplot(dat, aes(x = position, y = -log10(fdr), color = as.factor(ord
     legend.position = "none",
     panel.grid.major.x = element_blank(),
     panel.grid.minor.x = element_blank(),
-    axis.text.x = element_text(size = 25, face = "bold"),
-    axis.text.y = element_text(size = 25, face = "bold"),
-    axis.title.y = element_text(size = 30, face = "bold")
+    axis.text.x = element_text(size = TEXT_SIZE, face = "bold", color = "black"),
+    axis.text.y = element_text(size = TEXT_SIZE, face = "bold", color = "black"),
+    axis.title.y = element_text(size = TEXT_SIZE, face = "bold", color = "black")
   )
 
 
 manhplot
+ggsave(filename = "plots/manhplot.png", width = 25.5, height = 4,  dpi=300)
 

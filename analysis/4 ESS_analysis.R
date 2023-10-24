@@ -21,6 +21,27 @@ tab_model(mod1, mod2, mod1_FH, mod2_FH,
 
 
 
+##### grant
+dataset <- read.csv("data/dataset_ESS_grant.csv") #"non_hispanic_black", "non_hispanic_white",
+
+dataset$resi_cbcl = residuals(lm(cbcl_scr_syn_external_t~exwas_individual_sum_z, dataset, na.action=na.exclude))
+
+mod1 = glmer(paste0("SA_y ~ ", paste(covs,collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
+mod2 = glmer(paste0("SA_y ~ exwas_individual_sum_z + ", paste(covs, collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
+mod3 = glmer(paste0("SA_y ~ cbcl_scr_syn_external_t + ", paste(covs, collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
+mod4 = glmer(paste0("SA_y ~ exwas_individual_sum_z + cbcl_scr_syn_external_t + ", paste(covs, collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
+mod5 = glmer(paste0("SA_y ~ exwas_individual_sum_z*cbcl_scr_syn_external_t + ", paste(covs, collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
+
+mod3r = glmer(paste0("SA_y ~ resi_cbcl + ", paste(covs, collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
+mod4r = glmer(paste0("SA_y ~ exwas_individual_sum_z + resi_cbcl + ", paste(covs, collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
+mod5r = glmer(paste0("SA_y ~ exwas_individual_sum_z*resi_cbcl + ", paste(covs, collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
+
+
+tab_model(mod1, mod2, mod3, mod4, mod5, mod3r, mod4r, mod5r,
+          show.intercept = F, show.ngroups = T, show.aic = T, show.r2 = T,  file = "outputs/abcd_ers_cbcl_results.doc")
+
+##### end grant
+
 # https://easystats.github.io/performance/articles/r2.html
 performance::r2(mod2)
 performance::r2_nakagawa(mod2) # this is being used in the sjPlot
@@ -92,7 +113,7 @@ aictab(cand.set = models)
 
 
 
-dataset$race_eth = factor(dataset$race_eth, levels = c("NH-White", "Hispanic","NH-Black"))
+dataset$race_eth = as.factor(dataset$race_eth)
 
 # interaction by subgroups
 mod2_sex =    glmer(paste0("SA_y ~ exwas_individual_sum_z*sex + ", paste(covs, collapse = " + ") , " + (1 | site_id_l_br/rel_family_id/src_subject_id)"), family = binomial, data = dataset, nAGQ = 0)
@@ -119,50 +140,81 @@ tab_model(mod2, mod2_lgbt_0, mod2_lgbt_1,
 
 #### plots ####
 library(ggplot2)
-x_main = "ERS"
+x_main = element_blank()
 y_main = "Probability of Suicide Attempt"
 
 df = dataset[complete.cases(dataset$ethnicity_hisp),]
 df$Pedicted_SA_probability =  predict(mod2,type = "response")
 
+
+FONT_SIZE = 26
+
+theme_set(theme_minimal() + #scale_color_manual(values = c("#158EA7", "#844D88","#8DC34A"))+ 
+            theme(
+              plot.title = element_text(size = FONT_SIZE, face = "bold"),
+              plot.subtitle = element_blank(),
+              text = element_text(size = FONT_SIZE, face="bold"),
+              axis.text = element_text(color='black',size = FONT_SIZE-5, face="bold"),
+              legend.text = element_text(size = FONT_SIZE, face="bold")))
+
+
+
 ### lgbt
-df = df[complete.cases(df$LGBT_inclusive),]
-df$category = factor(df$LGBT_inclusive, labels = c("NON LGBT", "LGBT"))
+df1 = df[complete.cases(df$LGBT_inclusive),]
+df1$category = factor(df1$LGBT_inclusive, labels = c("NON LGBT", "LGBT"))
 
-p=ggplot(data=df, aes(x=exwas_individual_sum_z, y=Pedicted_SA_probability, group = category, color=category)) +
+p_lgbt=ggplot(data=df1, aes(x=exwas_individual_sum_z, y=Pedicted_SA_probability, group = category, color=category)) +
   geom_smooth(method=lm,  level=0.95, aes(fill = category))+
-  labs(x= x_main, y = y_main) +
-  theme_minimal() +
-  theme(legend.title=element_blank(), legend.position = c(.9, .1))
+  labs(x= x_main, y = element_blank()) + 
+  scale_colour_manual(values =  c("#158EA7", "#844D88"))+ 
+  scale_fill_manual(values =  c( "#158EA7", "#844D88"))+ 
+  theme(legend.title=element_blank(), legend.position = c(.75, .12))+
+  scale_x_continuous( breaks = seq(-2, 10, 3))
   
-p
+p_lgbt
 
-ggsave(filename ="plots/lgbt.png", p, width = 20, height = 15, dpi=700)
+# ggsave(filename ="plots/lgbt.png", p, width = 20, height = 15, dpi=700)
 
 ### sex
 df$category = factor(df$sex, labels = c("Female", "Male"))
-p=ggplot(data=df, aes(x=exwas_individual_sum_z, y=Pedicted_SA_probability, group = category, color=category)) +
+p_sex=ggplot(data=df, aes(x=exwas_individual_sum_z, y=Pedicted_SA_probability, group = category, color=category)) +
   geom_smooth(method=lm,  level=0.95, aes(fill = category))+
   labs(x= x_main, y = y_main) +
-  theme(legend.title=element_blank())
-p
+  scale_colour_manual(values =  c("#158EA7", "#844D88"))+ 
+  scale_fill_manual(values =  c( "#158EA7", "#844D88"))+ 
+  theme(legend.title=element_blank(), legend.position = c(.8, .12))+
+  scale_y_continuous( breaks = c(seq(0, .2, .05), .24))+
+  scale_x_continuous( breaks = seq(-2, 10, 3))
+p_sex
 
-save_plot(filename = "plots/sex.tif",  p,  dpi=700)
+# save_plot(filename = "plots/sex.tif",  p,  dpi=700)
 
 
 ### non hisp groups
-df$category = df$ethnicity_hisp
-df$category = ifelse(df$non_hispanic_black == 1 & df$non_hispanic_white == 0 , 2, df$category)
-df$category = ifelse(df$non_hispanic_black == 0 & df$non_hispanic_white == 1 , 3, df$category)
-df$category[df$category==0] =NA
-df$category = factor(df$category, levels = c(2,3,1), labels = c("Non Hispanic Black", "Non Hispanic White", "Hispanic"))
-p=ggplot(data=df[complete.cases(df$category),], aes(x=exwas_individual_sum_z, y=Pedicted_SA_probability, group = category, color=category)) +
+
+df$category = factor(df$race_eth)
+
+p_race=ggplot(data=df[complete.cases(df$category),], aes(x=exwas_individual_sum_z, y=Pedicted_SA_probability, group = category, color=category)) +
   geom_smooth(method=lm,  level=0.95, aes(fill = category))+
-  labs(x= x_main, y = y_main) +
-  theme(legend.title=element_blank())
+  labs(x= x_main, y = element_blank()) +
+  scale_colour_manual(values =  c("#158EA7", "#844D88", "#8DC34A"))+ 
+  scale_fill_manual(values =  c( "#158EA7", "#844D88","#8DC34A"))+ 
+  theme(legend.title=element_blank(), legend.position = c(.75, .14))+
+  scale_x_continuous( breaks = seq(-2, 10, 3))
+p_race
+
+# save_plot(filename = "plots/hisp_3_categories.tif",  p,  dpi=700)
+
+
+p = ggarrange(p_sex,p_lgbt,p_race, nrow = 1, widths = c(.4,.4,.4) ) + 
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_line(color = "black"))
 p
 
-save_plot(filename = "plots/hisp_3_categories.tif",  p,  dpi=700)
+
+ggsave(filename ="plots/differential effects.tiff", p, width = 18, height = 6, dpi=700)
+
+
 
 
 ### PRS

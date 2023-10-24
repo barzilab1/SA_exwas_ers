@@ -88,7 +88,7 @@ stq[, grep("admin|screentime_phone[1-8]|_(dk|min|(smqa|vgaq)[1-6])$", colnames(s
 stq[stq == -1] = NA
 
 # clean 777 and 999 that are Refuse to Answer and Don't Know
-col_names_clean = colnames(stq)[sapply(stq, function(x){any( x == 777 | x == 999, na.rm = T)})]
+col_names_clean = colnames(stq)[sapply(stq, \(x){any( x == 777 | x == 999, na.rm = T)})]
 col_names_clean = setdiff(col_names_clean, c("screentime_smq_followers", "screentime_smq_following"))
 stq[col_names_clean] = lapply(stq[col_names_clean], \(x) ifelse(x == 777 | x == 999, NA, x))
 
@@ -145,6 +145,8 @@ stq$screentime_smq_following = ifelse(stq$screentime_smq_following > 5000, NA , 
 # screentime_sq: What do you usually do with your phone when you are ready to go to sleep?
 stq <- dummy_cols(stq, "screentime_sq2", ignore_na = T, remove_selected_columns = T)
 # View(stq[,grep("screentime_sq2", colnames(stq))])
+
+# remove screentime_odq2, screentime_odq3, screentime_odq4 because nested in screentime_odq1????
 
 View(describe(stq))
 

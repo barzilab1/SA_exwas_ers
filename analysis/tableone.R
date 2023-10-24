@@ -5,12 +5,14 @@ library(plyr)
 demo_race = read.csv("data/demo_race.csv")
 train = read.csv(file = "data/DV_suicide_train.csv")
 test = read.csv(file = "data/DV_suicide_test.csv")
+lgbt <- read_csv("data/lgbtqia.csv")
+
 
 
 create_wide_dataset = function(df){
   df$timepoint = sub("_year.*", "", df$eventname)
   
-  df_wide = reshape(df[,c("src_subject_id", "sex", "SA_y","timepoint", "matched_group","age" )], direction = "wide", 
+  df_wide = reshape(df[,c("src_subject_id", "sex", "SA_y","timepoint", "matched_group","age", "LGBT", "LGBT_inclusive" )], direction = "wide", 
                     idvar = c("src_subject_id", "sex", "matched_group"), timevar = "timepoint", sep = "__")
   setDT(df_wide)
   
@@ -41,6 +43,9 @@ create_wide_dataset = function(df){
 
 train$age = train$interview_age / 12
 test$age = test$interview_age / 12
+
+train = merge(train, lgbt)
+test = merge(test, lgbt)
 
 train_wide = create_wide_dataset(train)
 test_wide = create_wide_dataset(test)

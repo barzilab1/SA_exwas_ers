@@ -40,11 +40,12 @@ write.csv(file = "data/DV_suicide_test.csv", x = DV_suicide_test, row.names=F, n
 ######################################### 
 #### 2. load and merge exposome data ####
 ######################################### 
-
-demographics <- read.csv("data/demographics_all.csv")
-exposome_sum <- read.csv("data/exposome_sum_set.csv")
-exposome_item <- read.csv("data/exposome_set_item.csv")
-lifestyle <- read.csv("data/lifestyle_item.csv")
+##TODO add lgbt to data
+demographics <- read_csv("data/demographics_all.csv")
+exposome_sum <- read_csv("data/exposome_sum_set.csv")
+exposome_item <- read_csv("data/exposome_set_item.csv")
+lifestyle <- read_csv("data/lifestyle_item.csv")
+lgbt <- read_csv("data/lgbtqia.csv")
 
 geo_data <- read.csv("data/geo_data.csv")
 
@@ -52,10 +53,10 @@ geo_data <- read.csv("data/geo_data.csv")
 individual_level = merge(demographics, exposome_sum)
 individual_level = merge(individual_level, exposome_item)
 individual_level = merge(individual_level, lifestyle)
+individual_level = merge(individual_level, lgbt)
 
 # remove observations with no DV
 individual_level = merge(individual_level, suicide_site[,c("src_subject_id", "eventname")])
-structural_level = merge(geo_data, suicide_site[,c("src_subject_id", "eventname")])
 
 # remove features with more than 10% missing data 
 remove_cols_with_na = function(df){
@@ -72,17 +73,13 @@ remove_cols_with_na = function(df){
 }
 
 individual_level = remove_cols_with_na(individual_level)
-structural_level = remove_cols_with_na(structural_level)
 
 # remove columns with sd = 0
 # zero_sd_cols = sapply(individual_level, \(x) is.numeric(x) && sd(x, na.rm = T) == 0)
 # individual_level = individual_level[, !zero_sd_cols]
 
 
-
-
 individual_level = remove_low_signal_cols(individual_level)
-structural_level = remove_low_signal_cols(structural_level)
 
 
 
@@ -127,7 +124,7 @@ cols_range = sapply(individual_level_test[,grep("src|^sex|event|inter", colnames
 cols_to_check_outliers_test = names(which(cols_range[2,]-cols_range[1,] >= 6)) 
 
 individual_level_test = remove_outliers(cols_to_check_outliers_test, individual_level_test)
-individual_level_test = remove_low_signal_cols(individual_level_test)
+# individual_level_test = remove_low_signal_cols(individual_level_test)
 
 
 write.csv(file = "data/individual_level_test.csv", x = individual_level_test, row.names=F, na = "")

@@ -38,18 +38,18 @@ get_results <- function(mod, variable){
 }
 
 
-run_mm <- function(variable, dataset ){
+run_mm <- function(variable, df ){
   formula_str = as.formula(paste0("SA_y ~ ", variable, " + interview_age + (interview_age)^2 + (interview_age)^3 + sex + (1 | site_id_l_br/rel_family_id/src_subject_id)"))
-  glmer(formula_str, family = binomial, data = dataset, nAGQ = 0)
+  glmer(formula_str, family = binomial, data = df, nAGQ = 0)
 }
  
 
 run_models <- function(dataset_IV, dataset_DV){
   
   variables = grep("src|^sex|interview|event", colnames(dataset_IV), invert = T, value = T)
-  dataset = merge(dataset_DV, dataset_IV)
+  df = merge(dataset_DV, dataset_IV)
   
-  models_list = sapply(variables, run_mm, dataset)
+  models_list = sapply(variables, run_mm, df)
   results_to_print = as.data.frame(t(sapply(names(models_list), \(variable) unlist(get_results(models_list[[variable]], variable)))))
   # tab_model(models_list[[1]],show.intercept = F)
   

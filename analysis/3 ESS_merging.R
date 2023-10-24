@@ -43,12 +43,12 @@ set.seed(101)
 test_1_year = dataset[dataset$eventname == "1_year_follow_up_y_arm_1",]
 test_1_year = remove_empty(test_1_year, which = "cols")
 test_1_year_imputed = missForest(test_1_year[,grep("src|event|date$|sex$", colnames(test_1_year), invert = T)], 
-                                 parallelize = 'variables')
+                                 parallelize = 'forests')
 set.seed(101)
 test_2_year = dataset[dataset$eventname == "2_year_follow_up_y_arm_1",]
 test_2_year = remove_empty(test_2_year, which = "cols")
 test_2_year_imputed = missForest(test_2_year[,grep("src|event|date$|sex$", colnames(test_2_year), invert = T)], 
-                                 parallelize = 'variables')
+                                 parallelize = 'forests')
 stopCluster(cl)
 
 test_baseline_imputed = cbind(test_baseline[,grep("src|event|date$|sex$", colnames(test_baseline))], test_baseline_imputed$ximp)
@@ -64,7 +64,7 @@ dataset_test_imputed[,binary_features] = as.data.frame(lapply(dataset_test_imput
 dataset_test_imputed[,race_b_features] = as.data.frame(lapply(dataset_test_imputed[,race_b_features], \(x) as.numeric(as.character(x))))
 dataset_test_imputed = scale_features(dataset_test_imputed)
 
-
+saveRDS(dataset_test_imputed, "outputs/dataset_test_imputed.RDS" )
 ##########################
 #### 2. calculate ERS ####
 ##########################
@@ -73,11 +73,45 @@ individual_cut_off = individual_level_exwas_results[individual_level_exwas_resul
 
 
 # calculate scores
-dataset_test_imputed$exwas_individual_sum = apply(dataset_test_imputed[,individual_cut_off$variable], 1 , function(r){
+dataset_test_imputed$grant_ers = apply(dataset_test_imputed[,individual_cut_off$variable], 1 , function(r){
   return(sum(r*individual_cut_off$coefficients, na.rm = T))
 })
 
-dataset_test_imputed$exwas_individual_sum_z = scale(dataset_test_imputed$exwas_individual_sum)[,1]
+# removed [,1] -->recheck!!!
+dataset_test_imputed$exwas_individual_sum_z = scale(dataset_test_imputed$exwas_individual_sum)
+
+
+
+
+##### grant
+cut_off_grant = individual_level_exwas_results[(individual_level_exwas_results$or <= 1/1.2 & individual_level_exwas_results$or > 0 )| individual_level_exwas_results$or >= 1.2 , c("variable", "coefficients", "or")]
+
+
+# calculate scores
+dataset_test_imputed$grant_ers = apply(dataset_test_imputed[,cut_off_grant$variable], 1 , function(r){
+  return(sum(r*cut_off_grant$coefficients, na.rm = T))
+})
+
+dataset_test_imputed$grant_ers_z = scale(dataset_test_imputed$grant_ers)[,1]
+
+# TODO add below the grant ers to the dataset
+
+
+
+individual_level_train <- read_csv("data/individual_level_train.csv")
+individual_level_train$exwas_individual_sum = apply(individual_level_train[,individual_cut_off$variable], 1 , function(r){
+  return(sum(r*individual_cut_off$coefficients, na.rm = T))
+})
+
+individual_level_train$exwas_individual_sum_z = scale(individual_level_train$exwas_individual_sum)[,1]
+
+
+write.csv(file = paste0("data/train_ers.csv"), individual_level_train[, c("src_subject_id", "exwas_individual_sum_z", "eventname")], row.names = F)
+
+
+##### end grant
+
+
 
 
 
@@ -89,12 +123,24 @@ suicide_test <- read_csv("data/DV_suicide_test.csv")
 genetics <- read_csv(file.path(abcd_genetics_path, "genetic.csv"))
 lgbt <- read_csv("data/lgbtqia.csv")
 
+######grant
+cbcl = read_csv("data/cbcl.csv")
+###### end grant
+  
+  
 dataset = merge(suicide_test, race, all.x = T)
 dataset = merge(dataset, FH_suicide[,c("src_subject_id", "famhx_ss_momdad_scd_p")], all.x = T)
 dataset = merge(dataset, lgbt[,c("src_subject_id", "eventname", "LGBT", "LGBT_inclusive")])
 dataset = merge(dataset, genetics[,c("src_subject_id", "suicide_PRSice_Pt0_05", "genetic_afr")], all.x = T)
 dataset = merge(dataset, dataset_test_imputed[,c("src_subject_id", "eventname", "interview_age", "sex",
                                                      "exwas_individual_sum", "exwas_individual_sum_z")] )
+######grant
+dataset = merge(dataset, cbcl[,c("src_subject_id", "eventname", "interview_age", "sex", 
+                                  "cbcl_scr_syn_totprob_t", "cbcl_scr_syn_external_t")] )
+write.csv(file = paste0("data/dataset_ESS_grant.csv"), dataset, row.names = F)
+
+###### end grant
+
 setDT(dataset)
 dataset[, race_eth := {
   fcase(

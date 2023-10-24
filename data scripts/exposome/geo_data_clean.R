@@ -1,3 +1,4 @@
+library(psych)
 
 source("config.R")
 source("utility_fun.R")
@@ -42,6 +43,7 @@ describe(rhds01[grep("src|event|interv|reshist_(state|addr1_(svi|adi|coi|opat|sc
 
 # remove 3 year follow up
 rhds01 = rhds01[rhds01$eventname != "3_year_follow_up_y_arm_1", ]
+
 
 write.csv(file = "data/geo_data.csv",x = rhds01, row.names = F, na = "")
 
