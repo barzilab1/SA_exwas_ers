@@ -17,15 +17,16 @@ get_results <- function(mod, variable){
   fix_coef = summary(mod)$coefficients
   
   result$coefficients = fix_coef[variable, "Estimate"]
-  result$or = round(exp( fix_coef[variable, "Estimate"]), digits = 3)
-  result$p_value = fix_coef[variable, "Pr(>|z|)"]
   
-  coeffic_ci = round(confint(mod,method="Wald")[variable,], digits = 3)
+  coeffic_ci = round(confint(mod, method="Wald")[variable,], digits = 3)
   result$coeffic_ci = paste0(coeffic_ci[1],"-",coeffic_ci[2])
    
+  result$or = round(exp( fix_coef[variable, "Estimate"]), digits = 3)
   ci = round(exp(confint(mod,method="Wald"))[variable,], digits = 3)
   result$lowerci = ci[[1]]
   result$upperci = ci[[2]]
+  
+  result$p_value = fix_coef[variable, "Pr(>|z|)"]
   
   result$observationsN = summary(mod)[["devcomp"]]$dims[["N"]]
   result$participants = length(levels(mod@frame[,c("src_subject_id")]))
@@ -51,7 +52,7 @@ run_models <- function(dataset_IV, dataset_DV){
   
   models_list = sapply(variables, run_mm, df)
   results_to_print = as.data.frame(t(sapply(names(models_list), \(variable) unlist(get_results(models_list[[variable]], variable)))))
-  # tab_model(models_list[[1]],show.intercept = F)
+  # library(sjPlot);tab_model(models_list, show.intercept = F)
   
   return(list(models = models_list, 
               results = results_to_print))
@@ -59,16 +60,16 @@ run_models <- function(dataset_IV, dataset_DV){
 
 
 #### read data #### 
-individual_level_df <- read_csv("data/individual_level_train.csv")
+exposome_df <- read_csv("data/exposome_df_train.csv")
 suicide_train_df <- read_csv("data/DV_suicide_train.csv")
 
 #### run Exwas #### 
-individual_level_models = run_models(individual_level_df, suicide_train_df) 
+exposome_models = run_models(exposome_df, suicide_train_df) 
 
 #### add FDR correction ####
-individual_level_models$results$fdr = p.adjust(individual_level_models$results$p_value, "fdr")
+exposome_models$results$fdr = p.adjust(exposome_models$results$p_value, "fdr")
 
-write.csv(file = paste0("outputs/individual_level_results.csv"), individual_level_models$results, row.names = F)
+write.csv(file = paste0("outputs/exwas_results.csv"), exposome_models$results, row.names = F)
 
 
 
@@ -79,19 +80,19 @@ write.csv(file = paste0("outputs/individual_level_results.csv"), individual_leve
 
 
 #### run one model that contains all selected features ####
-###!!!!!!!! we can't run all in one models. we have variables availble in different timepoints so all rows have NA -> no data
-individual_cut_off = individual_level_models$results$variable[individual_level_models$results$fdr <= 0.05]
-# structural_cut_off = structural_level_models5$results[structural_level_models5$results$fdr <= 0.05, "Feature"]
-
-dataset_in = merge(individual_level_df, suicide_train_df)
-# dataset_st = merge(structural_level_5, suicide_train)
-
-formula_str = as.formula(paste0("SA_y ~ ", paste(individual_cut_off,collapse = " + "), " + interview_age + (interview_age)^2 + (interview_age)^3 + sex + (1 | site_id_l_br/rel_family_id/src_subject_id)"))
-individula_mod_all_2 = glmer(formula_str, family = binomial, data = dataset_in, nAGQ = 0)
-
-library(sjPlot)
-tab_in2 = tab_model(individula_mod_all_2,show.intercept = F) 
-tab_in2
+###!!!!!!!! we can't run all in one models. we have variables available in different timepoints so all rows have NA -> no data
+# individual_cut_off = exposome_models$results$variable[exposome_models$results$fdr <= 0.05]
+# # structural_cut_off = structural_level_models5$results[structural_level_models5$results$fdr <= 0.05, "Feature"]
+# 
+# dataset_in = merge(exposome_df, suicide_train_df)
+# # dataset_st = merge(structural_level_5, suicide_train)
+# 
+# formula_str = as.formula(paste0("SA_y ~ ", paste(individual_cut_off,collapse = " + "), " + interview_age + (interview_age)^2 + (interview_age)^3 + sex + (1 | site_id_l_br/rel_family_id/src_subject_id)"))
+# individula_mod_all_2 = glmer(formula_str, family = binomial, data = dataset_in, nAGQ = 0)
+# 
+# library(sjPlot)
+# tab_in2 = tab_model(individula_mod_all_2,show.intercept = F) 
+# tab_in2
 
 
 

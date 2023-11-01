@@ -2,7 +2,6 @@
 
 library(metafor)
 library(ggplot2)
-library(readxl)
 
 apatheme=theme_bw()+
   theme(panel.grid.major=element_blank(),
@@ -14,8 +13,7 @@ apatheme=theme_bw()+
         strip.text.y.right = element_text(angle = 0))
 
 
-# dat = read_excel("~/Desktop/individual_level_results.xlsx")
-dat = read.csv("outputs/individual_level_results.csv")
+dat = read.csv("outputs/exwas_results.csv")
 dat = dat[dat$fdr< 0.05,]
 dat$feature = as.factor(dat$variable) #description 
 dat$feature = reorder(dat$variable, dat$or)
@@ -24,7 +22,7 @@ dat$upperci = as.numeric(dat$upperci)
 # dat$Category  = factor(dat$Category, levels=c("Risk Factors","Protective Factors"  ))
 
 
-dat = dat[order(dat$OR, decreasing = T),]
+dat = dat[order(dat$or, decreasing = T),]
 
 #### individual ####
 
@@ -52,6 +50,14 @@ p
 
 #Save plot in your working directory
 ggsave(p, file='plots/forest_plot.png', width = 10, height=10, dpi=300)
+
+
+
+
+
+
+
+
 
 
 

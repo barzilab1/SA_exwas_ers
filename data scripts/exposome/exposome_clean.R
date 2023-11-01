@@ -174,14 +174,7 @@ dhx01[,c("devhx_8_rxnorm_med1", "devhx_8_rxnorm_med2", "devhx_8_rxnorm_med3", "d
 
 # this instrument wil be merged with all timepoints, not only baseline 
 dhx01[,c("eventname", "interview_age", "interview_date")] = NULL
-# View(describe(dhx01))
-
-
-########### Parent Multi-Group Ethnic Identity-Revised Survey ###########
-# meim = load_instrument("abcd_meim01",abcd_files_path)
-# meim[,c("meim_select_language___1","meim_ethnic_id_p")] = NULL 
-# 
-# describe(meim)
+# View(as.data.frame(describe(dhx01)))
 
 
 ########### Children's Report of Parental Behavioral Inventory ###########
@@ -194,13 +187,6 @@ crpbi[, col_names_b] = ifelse(crpbi[col_names] == 3, 1,0)
 crpbi[, col_names] = NULL
 
 describe(crpbi)
-
-
-########### Parent Mexican American Cultural Values Scale Modified ###########
-# macv = load_instrument("macv01",abcd_files_path)
-# macv$mex_american_select_lang_1 = NULL
-# 
-# describe(macv)
 
 
 ########### Parental Rules on Substance Use ###########
@@ -259,7 +245,6 @@ describe(cb)
 peq01 = load_instrument("abcd_peq01",abcd_files_path)
 peq01 = peq01[,grep("src|sex|event|interview|_vic$", colnames(peq01)) ]
 
-
 col_names = grep("peq_", colnames(peq01), value = T)
 col_names_b = paste0(col_names, "_b")
 peq01[, col_names_b] = ifelse(peq01[, col_names] > 1, 1,0)
@@ -301,8 +286,6 @@ ysr = load_instrument("abcd_ysr01",abcd_files_path)
 
 ysr[,grep("remote|admin|device", colnames(ysr))] = NULL
 ysr[ysr == -1 | ysr == "Don't know"] = NA
-# ysr$resiliency5a_y[ysr$resiliency5a_y > 100] = 100
-# ysr$resiliency6a_y[ysr$resiliency6a_y > 100] = 100
 
 describe(ysr)
 
@@ -310,7 +293,7 @@ describe(ysr)
 ########### Youth Substance Use Attitudes ###########
 ysua = load_instrument("abcd_ysua01",abcd_files_path)
 ysua[ysua == 999] = NA
-ysua[grep("^(ptu|path|phs)",colnames(ysua))] = NULL
+ysua[grep("^(ptu|path|phs)",colnames(ysua))] = NULL #these are not exposome. the child thoughts/options 
 # describe(ysua)
 
 ########### Youth Substance Use Interview ###########

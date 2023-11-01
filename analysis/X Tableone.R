@@ -5,11 +5,12 @@ library(plyr)
 demo_race = read.csv("data/demo_race.csv")
 train = read.csv(file = "data/DV_suicide_train.csv")
 test = read.csv(file = "data/DV_suicide_test.csv")
-lgbt <- read_csv("data/lgbtqia.csv")
+lgbt <- read.csv("data/lgbtqia.csv")
 
 
 
 create_wide_dataset = function(df){
+  
   df$timepoint = sub("_year.*", "", df$eventname)
   
   df_wide = reshape(df[,c("src_subject_id", "sex", "SA_y","timepoint", "matched_group","age", "LGBT", "LGBT_inclusive" )], direction = "wide", 
@@ -24,19 +25,13 @@ create_wide_dataset = function(df){
     )
   }]
   
-  
-  ### calculate the mean diff between 2 year and both 1 year and baseline
-  # mean_baseline_2year = age_site_wide[, mean(interview_age__2 - interview_age__baseline, na.rm = T)]
-  # mean_1year_2year = age_site_wide[, mean(interview_age__2 - interview_age__1, na.rm = T)]
-  # 
-  # age_site_wide[, age := {
-  #   fcase(
-  #     !is.na(interview_age__2), round(interview_age__2), 
-  #     !is.na(interview_age__1), round(interview_age__1 + mean_1year_2year),
-  #     !is.na(interview_age__baseline), round(interview_age__baseline + mean_baseline_2year) ,
-  #     default = NA
-  #   )
-  # }]
+  df_wide[, LGBT_inclusive__ever:={
+    fcase(
+      LGBT_inclusive__2 == 1 | LGBT_inclusive__1 == 1 | LGBT_inclusive__baseline == 1, 1,
+      LGBT_inclusive__2 == 0 | LGBT_inclusive__1 == 0 | LGBT_inclusive__baseline == 0, 0,
+      default = NA
+    )
+  }]
   
   return(df_wide)
 }
@@ -63,11 +58,6 @@ vars = colnames(df)[-c(1,3)]
 tab <- CreateTableOne(vars = vars, data = df,  factorVars = vars[grep("age", vars, invert = T)] , strata = "SA_y_ever", addOverall = T)
 table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
 write.csv(table1, file = "outputs/Table1.csv")
-
-# only training 
-train$age = train$interview_age / 12
-tab <- CreateTableOne(vars = c("interview_age", "age"), data = train, strata = "eventname", addOverall = T)
-tab
 
 
 # entire cohort

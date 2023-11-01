@@ -2,7 +2,7 @@ library(janitor)
 library(qgraph)
 library(psych)
 library(caret)
-library(missForest)
+# library(missForest)
 
 source("config.R")
 source("utility_fun.R")
@@ -26,7 +26,6 @@ participants = read.table(file = file.path(abcd_partition_path, "participants.ts
 participants$src_subject_id = sub("sub-NDAR", "NDAR_", participants$participant_id)
 participants = unique(participants[, c("src_subject_id", "matched_group")]) 
 
-
 # merge participants
 suicide_site = merge(suicide_site, participants)
 
@@ -40,94 +39,64 @@ write.csv(file = "data/DV_suicide_test.csv", x = DV_suicide_test, row.names=F, n
 ######################################### 
 #### 2. load and merge exposome data ####
 ######################################### 
-##TODO add lgbt to data
 demographics <- read_csv("data/demographics_all.csv")
 exposome_sum <- read_csv("data/exposome_sum_set.csv")
 exposome_item <- read_csv("data/exposome_set_item.csv")
 lifestyle <- read_csv("data/lifestyle_item.csv")
-lgbt <- read_csv("data/lgbtqia.csv")
 
-geo_data <- read.csv("data/geo_data.csv")
 
 # merge all exposome features
-individual_level = merge(demographics, exposome_sum)
-individual_level = merge(individual_level, exposome_item)
-individual_level = merge(individual_level, lifestyle)
-individual_level = merge(individual_level, lgbt)
+exposome_df = merge(demographics, exposome_sum)
+exposome_df = merge(exposome_df, exposome_item)
+exposome_df = merge(exposome_df, lifestyle) 
+# total of 809-6 = 803 features in abcd
 
 # remove observations with no DV
-individual_level = merge(individual_level, suicide_site[,c("src_subject_id", "eventname")])
+exposome_df = merge(exposome_df, suicide_site[,c("src_subject_id", "eventname")])
 
-# remove features with more than 10% missing data 
-remove_cols_with_na = function(df){
-  
-  for (timepoint in unique(df$eventname)) {
-    sub_dataset = df[df$eventname == timepoint,]
-    vari_delete = colnames(sub_dataset)[which( colSums(is.na(sub_dataset)) >= 0.10*nrow(sub_dataset))]
-    df[df$eventname == timepoint, vari_delete] = NA
-  }
+exposome_df = remove_cols_with_na(exposome_df) #573
 
-  df = remove_empty(df, which = "cols")
-
-  return(df)
-}
-
-individual_level = remove_cols_with_na(individual_level)
-
-# remove columns with sd = 0
-# zero_sd_cols = sapply(individual_level, \(x) is.numeric(x) && sd(x, na.rm = T) == 0)
-# individual_level = individual_level[, !zero_sd_cols]
-
-
-individual_level = remove_low_signal_cols(individual_level)
+# remove columns with low information/signal
+exposome_df = remove_low_signal_cols(exposome_df) #501
 
 
 
-# create training subsample
-individual_level_train = merge(individual_level, DV_suicide_train[,c("src_subject_id", "eventname")])
+############################### 
+#### 3. create sub cohorts ####
+############################### 
+
+# create training cohort
+exposome_df_train = merge(exposome_df, DV_suicide_train[,c("src_subject_id", "eventname")])
 
 # clean outliers 
-cols_range = sapply(individual_level_train[,grep("src|^sex|event|inter", colnames(individual_level_train), invert = T)], range, na.rm = T)
-cols_to_check_outliers = names(which(cols_range[2,]-cols_range[1,] >= 6)) 
-
-
-
-
-individual_level_train = remove_outliers(cols_to_check_outliers, individual_level_train)
-individual_level_train = remove_low_signal_cols(individual_level_train)
-
+exposome_df_train = remove_outliers(exposome_df_train)
+exposome_df_train = remove_low_signal_cols(exposome_df_train)
 
 
 # check correlation and remove above 0.9
-corr_data = individual_level_train[,grep("src|^sex|interview|event", colnames(individual_level_train), invert = T)]
+corr_data = exposome_df_train[,grep("src|^sex|interview|event", colnames(exposome_df_train), invert = T)]
 corrs = cor_auto(corr_data, ordinalLevelMax=8)
 saveRDS(corrs, file = "outputs/corrs_data_all.rds")
 corr_featuers = findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbose = T) 
-individual_level_train[,corr_featuers] = NULL
+exposome_df_train[,corr_featuers] = NULL #431-6=425 features in exwas/403-6 =397
 
+View(as.data.frame(describe(exposome_df_train)))
 
-View(as.data.frame(describe(individual_level_train)))
+# scale features
+exposome_df_train = scale_features(exposome_df_train)
 
-individual_level_train = scale_features(individual_level_train)
-
-write.csv(file = "data/individual_level_train.csv", x = individual_level_train, row.names=F, na = "")
-
-
+write.csv(file = "data/exposome_df_train.csv", x = exposome_df_train, row.names=F, na = "")
 
 
 
-# create testing subsample
-individual_level_test = merge(individual_level, DV_suicide_test[,c("src_subject_id", "eventname")])
+# create testing cohort
+exposome_df_test = merge(exposome_df, DV_suicide_test[,c("src_subject_id", "eventname")])
 
 # clean outliers 
-cols_range = sapply(individual_level_test[,grep("src|^sex|event|inter", colnames(individual_level_test), invert = T)], range, na.rm = T)
-cols_to_check_outliers_test = names(which(cols_range[2,]-cols_range[1,] >= 6)) 
+exposome_df_test = remove_outliers(exposome_df_test)
+# don't remove low signal in testing 
 
-individual_level_test = remove_outliers(cols_to_check_outliers_test, individual_level_test)
-# individual_level_test = remove_low_signal_cols(individual_level_test)
-
-
-write.csv(file = "data/individual_level_test.csv", x = individual_level_test, row.names=F, na = "")
+write.csv(file = "data/exposome_df_test.csv", x = exposome_df_test, row.names=F, na = "")
 
 
 
