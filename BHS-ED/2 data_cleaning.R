@@ -5,7 +5,7 @@ library(janitor)
 
 setwd("~/sa_exwas")
 
-bhs_main = read_csv("data/bhs_main.csv")
+bhs_main = read.csv("data/bhs_main.csv", na.strings = "")
 patient = read_csv("data/patient.csv")
 coverage = read_csv("data/coverage.csv")
 
@@ -26,13 +26,11 @@ dataset[, MEDICAID := {
 dataset[,table(payor_category, MEDICAID, useNA = "if")]
 
 # keep only kids age 12 - 18
-### TODO - we lose kids that their second visit was after age 18 ---> 
-### remove kids with first visit > 18 in later stage ---- age_at_screen <= 18
 dataset = dataset[age_at_screen >= 12 & age_at_screen <= 18,]
 
-##########################################
-#### 1. clean race, ethnicity and sex ####
-##########################################
+###############################
+#### 1. clean demographics ####
+###############################
 
 # patient-table race and ethnicity are preceding to bhs 
 dataset[, race := fifelse(!is.na(race.x), tolower(race.x), race.y )]
@@ -130,7 +128,7 @@ dataset[,table(sex, sex_abbr, useNA = "if")]
 
 dataset[, gender_new := fifelse(!is.na(gender), gender, tolower(gender_identity_name ))]
 dataset[, table(gender_new, gender, useNA = "ifany")]
-dataset[, table(gender_new, sex_abbr, useNA = "ifany")]
+dataset[, table(gender_identity_name, gender_new, useNA = "ifany")]
 dataset[, TRANS := {
   fcase(
     gender_new %in% c("female","male"), 0,
@@ -140,9 +138,9 @@ dataset[, TRANS := {
 }]
 dataset[, table(gender_new, TRANS, useNA = "ifany")]
 
-#################################
-#### 2. change IVs to binary ####
-#################################
+#############################
+#### 2. change exposures ####
+#############################
 
 # During free time at school, how often do you spend time with friends or are you mostly alone?
 dataset[,bhsb01_br := {
@@ -276,17 +274,31 @@ dataset[bhssf01ao == 0, bhssf01aiii := 0]
 dataset[bhssf01ao == 0, bhssf01aiv := 0]
 dataset[bhssf01ao == 0, bhssf01av := 0]
 
+
+dataset[, summary(birth_weight_kg)]
+dataset[birth_weight_kg > 11 | birth_weight_kg < 0.3 , birth_weight_kg := NA]
+dataset[ , birth_weight_kg_b := fifelse(birth_weight_kg < 2.5, 1, 0)]
+dataset[ , birth_weight_kg := NULL]
+
 ###############################################
-#### 3. select exposome features & dataset #### 
+#### 3. diagnoses #### 
+###############################################
+dataset[ , table(depression_score, useNA = "if")]
+dataset[ , table(traumatic_distress_score, useNA = "if")]
+
+
+###############################################
+#### 4. select exposome features & dataset #### 
 ###############################################
 
 demogrphics_f = c("age_at_screen" ,"sex_abbr", "sex","race_black_non_hisp","race_white_non_hisp",
-                  "race","race_black", "race_white" ,"ethnicity_new", "gender", "TRANS", "race_eth")
-exposome_f = grep("bhssc|bhsf|bhssf0|bhssa0|bhssx|sx02|bhsed02|bhst01(a|b|d)|bhst0[2-4]|bhsb|military_child|MEDICAID", 
-                  colnames(dataset), value = T) #35
+                  "race","race_black", "race_white" ,"ethnicity_new", "gender_new", "TRANS", "race_eth")
+exposome_f = grep("bhssc|bhsf|bhssf0|bhssa0|bhssx|sx02|bhsed02|bhst01(a|b|d)|bhst0[2-4]|bhsb|military_child|MEDICAID|birth_weight", 
+                  colnames(dataset), value = T) #36
+diagnoses_f = c("depression_score", "traumatic_distress_score")
 outcome = "bhssu04"
 dataset_exposome = dataset[,.SD, .SDcols = c("pat_id", "encounter_id", "contact_date",
-                                               demogrphics_f, exposome_f, outcome )]
+                                               demogrphics_f, exposome_f, diagnoses_f, outcome )]
 dataset_exposome = dataset_exposome[!is.na(bhssu04),]
 dataset_exposome = remove_empty(dataset_exposome)
 
@@ -302,7 +314,7 @@ dataset_exposome = dataset_exposome[visit_number == 1,]
 
 
 ###########################################################
-#### 4. remove columns with more then 10% missing data ####
+#### 5. remove columns with more then 10% missing data ####
 ###########################################################
 # dataset_exposome[,colSums(is.na(.SD))]
 
@@ -310,12 +322,12 @@ missing_data_columns = dataset_exposome[, names(which(colSums(is.na(.SD)) > 0.1*
 dataset_exposome[, (missing_data_columns) := NULL]
 
 ########################################################
-### 5. remove columns with less then 0.1 information ###
+### 6. remove columns with less then 1 information ###
 ########################################################
 # dataset_exposome = type.convert(dataset_exposome) # is.numeric(x) &&
 vari_delete = dataset_exposome[, names(which(sapply(.SD,\(x)  (sum(x != 0, na.rm = T) / sum(!is.na(x))  < 0.01))) )
                                , .SDcols = setdiff(exposome_f, missing_data_columns)]
-dataset_exposome[, (vari_delete) := NULL]
+dataset_exposome[, (vari_delete) := NULL] 
 
 
 write.csv(dataset_exposome, "data/exposome_full_clean.csv", na = "", row.names = F)
@@ -324,33 +336,6 @@ write.csv(dataset_exposome, "data/exposome_full_clean.csv", na = "", row.names =
 
 
 
-
-
-
-
-
-
-
-##########################################################################################
-
-######## check SQL on how to merge
-# blood_pressure_data = setDT(read_csv("data/blood_pressure.csv"))
-# bmi_data = setDT(read_csv("data/bmi.csv"))
-# 
-# blood_pressure_data = blood_pressure_data[, started_at_datetime := as.Date(started_at_datetime)]
-# bmi_data = bmi_data[, started_at_datetime := as.Date(started_at_datetime)]
-# dataset_individual = dataset_individual[, started_at_datetime := as.Date(started_at_datetime)]
-# 
-# dataset1 = merge(dataset_individual, blood_pressure_data ,all.x = T )
-# dataset1 = merge(dataset_individual, bmi_data, all.x = T)
-# 
-# dataset1 = dataset1[!is.na(flowsheet_value),]
-# dataset1 = dataset1[!is.na(bmi),]
-# 
-# 
-# dataset1[,length(unique(pat_id))]
-
-# YE9105ZSAXUDC --> same started_at_datetime but very different age [16 vs 17]
 
 
 

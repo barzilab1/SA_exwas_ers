@@ -61,12 +61,12 @@ df[,table(group)]
 ### TABLE 1 ###
 category_f = c( "sex", "race", "ethnicity_new", "bhssu04", "TRANS") 
 # by group
-tab <- CreateTableOne(vars = c(category_f, "age_at_screen", "gender"), data = df, factorVars = category_f , strata = "group", addOverall = T)
+tab <- CreateTableOne(vars = c(category_f, "age_at_screen", "gender_new"), data = df, factorVars = category_f , strata = "group", addOverall = T)
 table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
 table1
 
 # by SA
-tab2 <- CreateTableOne(vars = c(category_f, "age_at_screen", "gender"), data = df, factorVars = category_f , strata = "bhssu04", addOverall = T)
+tab2 <- CreateTableOne(vars = c(category_f, "age_at_screen", "gender_new"), data = df, factorVars = category_f , strata = "bhssu04", addOverall = T)
 table2 <- print(tab2, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
 table2
 
@@ -88,14 +88,20 @@ set.seed(131)
 corr_data = train_df[ ,.SD ,.SDcols = grep("bhs(?!su04)|medi", colnames(train_df), ignore.case = T, perl = T)]
 corrs = cor_auto(corr_data)
 corr_featuers = findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbose = T) 
-train_df[, (corr_featuers) := NULL]
+train_df[, (corr_featuers) := NULL] # 18 exposures
 
-View(describe(train_df))
+View(as.data.frame(describe(train_df)))
 train_df[, bhssa01a_z := scale(bhssa01a)]
 train_df[, bhssa01a := NULL]
 train_df[, bhssa03a_z := scale(bhssa03a)]
 train_df[, bhssa03a := NULL]
 
 write.csv(train_df, "data/train_df.csv", na = "", row.names = F)
+
+
+testing_df = df[group == 2,]
+write.csv(testing_df, "data/testing_df.csv", na = "", row.names = F)
+
+
 
 
