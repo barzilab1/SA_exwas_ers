@@ -1,22 +1,25 @@
-# ABCD_create_datasets template
+# ABCD SA ExWas
 
+This projects uses the following datasets:
 
-1. Update the readme.md file to describe your project. The file should include the following:
-   
-   1. What are the instruments you are using and which ABCD version?
-   2. How to run the scripts?
-   3. How to merge the data?
+1.  ABCD 4.0
+2.  CHOP-ED
+3.  UK Millennium Cohort Study
 
-2. Go over the data script files:
+## ABCD Analysis
 
-   1. Delete unrelevent categories and scripts.
-   2. Adjust the required scripts. if needed, select/diselect variables. 
-   3. Run the scripts. the new datasets are created under the [data](/data) folder.
+1.  Create the raw data by runing the scripts under the [data scripts](/data%20scripts) folder. The new datasets are created under the [data](/data) folder.
 
-3. Merge the datasets:
+2.  Run the ExWas analysis:\
+    2.1. Create the dataset using [1 Exwas_merging.R](/analysis/1%20Exwas_merging.R)\
+    2.2. Run the ExWas analysis in [2 Exwas_analysis.R](/analysis/2%20Exwas_analysis.R)
 
-   1. Use the file [merging.R](/scripts/merging.R) as a template to merge the datsets 
-   2. If needed, create new variables 
-   3. Create new CSV file with all relevant features and upload it to box
-  
-4. Delete this file so it won't be part of the final project 
+3.  Run the Exposome Risk Score analysis\
+    3.1. Create the dataset using [3 ERS_merging.R](/analysis/3%20ERS_merging.R) \
+    3.2. Run the analysis in [4 ERS_main_analysis.RR](/analysis/4%20ERS_main_analysis.R)
+
+4.  Table 1 is available in
+
+5.  Plot 2 of the paper is at
+
+6.  Plot 6 is

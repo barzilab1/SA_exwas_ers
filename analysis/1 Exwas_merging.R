@@ -78,7 +78,7 @@ corr_data = exposome_df_train[,grep("src|^sex|interview|event", colnames(exposom
 corrs = cor_auto(corr_data, ordinalLevelMax=8)
 saveRDS(corrs, file = "outputs/corrs_data_all.rds")
 corr_featuers = findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbose = T) 
-exposome_df_train[,corr_featuers] = NULL #431-6=425 features in exwas/403-6 =397
+exposome_df_train[,corr_featuers] = NULL #403-6 =397
 
 View(as.data.frame(describe(exposome_df_train)))
 

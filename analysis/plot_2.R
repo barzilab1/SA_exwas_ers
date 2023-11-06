@@ -8,6 +8,10 @@ library(readxl)
 source("config.R")
 
 
+#####################
+##### 1. manhplot #####
+#####################
+
 tagged_data = read_excel(file.path(project_path, "ExWAS ABCD Dictionary.xlsx"))
 
 exwas_results <- read_csv("outputs/exwas_results.csv")
