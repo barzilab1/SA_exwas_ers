@@ -89,15 +89,34 @@ tab_model(modq1,
           show.intercept = F, show.ngroups = T, show.aic = T, show.r2 = T)
 
 
-dataset_plot = data.frame(
-  Quintiles = seq(1:5),
+dataset_plot_abcd = data.frame(
+  Quintiles = seq(1:5)-0.15,
   OR = c(0.06,0.45, 1, 1.26, 4.67),
   ci_lower = c(0.01,0.20,NA,0.70,2.79),
-  ci_upper = c(0.43,1.01,NA,2.28,7.82)
+  ci_upper = c(0.43,1.01,NA,2.28,7.82),
+  Dataset = rep("ABCD",5)
 )
 
+dataset_plot_chop = data.frame(
+  Quintiles = seq(1:5),
+  OR = c(0.45,0.51, 1, 2.25, 6.23),
+  ci_lower = c(0.33,0.37,NA,1.79,5.06),
+  ci_upper = c(0.63,0.69,NA,2.83,7.73),
+  Dataset = rep("CHOP-ED",5)
+)
 
-pc = ggplot(dataset_plot, aes(x=Quintiles, y=OR)) +
+dataset_plot_MCS = data.frame(
+  Quintiles = seq(1:5)+0.15,
+  OR = c(0.5,0.5, 1, 2.2, 6.2),
+  ci_lower = c(0.3,0.3,NA,1.7,5.1),
+  ci_upper = c(0.63,0.69,NA,2.83,7.73),
+  Dataset = rep("MCS",5)
+)
+
+dataset_plot = plyr::rbind.fill(dataset_plot_abcd, dataset_plot_chop, dataset_plot_MCS)
+
+
+pc = ggplot(dataset_plot, aes(x=Quintiles, y=OR, group = Dataset, color = Dataset)) +
   geom_point(shape=95, size = 7)+
   geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.025) +
   scale_y_continuous( name = "Odds Ratio",
@@ -108,12 +127,19 @@ pc = ggplot(dataset_plot, aes(x=Quintiles, y=OR)) +
                                           breaks = seq(0,8.2,1),
                                           labels = c(0,"",2,"",4,"",6,"",8)),
                       expand = expansion(mult = c(0, 0.1))) +
-  theme_minimal() + theme(panel.border = element_blank(), 
-                     panel.grid.major = element_blank(),
-                     panel.grid.minor = element_blank(), 
-                     axis.line = element_line(colour = "black"),
-                     text = element_text(size = FONT_SIZE, face="bold"),
-                     axis.text = element_text(color='black',size = FONT_SIZE-5, face="bold"))
+  theme_minimal() + 
+  theme(
+    panel.border = element_blank(), 
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), 
+    axis.line = element_line(colour = "black"),
+    text = element_text(size = FONT_SIZE, face="bold"),
+    axis.text = element_text(color='black',size = FONT_SIZE-5, face="bold"),
+    legend.position = c(.65, .85))+
+  scale_color_manual(
+    values = c("#EB945F", "#E04A68", "#98399A")
+  )
+
                      
 
 
@@ -129,5 +155,5 @@ p
 
 
 # figure 3
-ggsave(filename = "plots/combined_figure.tiff", width = 24.5, height = 10.5, device='tiff', dpi=300)
+ggsave(filename = "plots/combined_figure_3.tiff", width = 24.5, height = 10.5, device='tiff', dpi=300)
 
