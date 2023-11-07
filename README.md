@@ -1,4 +1,4 @@
-# SA ExWas
+# SA Exposome Scores (ExWAS and ERS)
 
 This projects uses the following datasets:
 
