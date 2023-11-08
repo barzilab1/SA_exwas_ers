@@ -4,15 +4,6 @@ library(plyr)
 source("config.R")
 source("utility_fun.R")
 
-########### Sum Scores Culture & Environment Youth ########### 
-# sscey01 = load_instrument("abcd_sscey01",abcd_files_path)
-# 
-# #remove nt (Number Total Questions) and nm (Number Missing Answers) and na (Number Answered)
-# sscey01 = sscey01[,!grepl("_(nm|nt|na|answered|pr)$",colnames(sscey01))]
-# # remove not exposome measurements: 
-# sscey01 = sscey01[,!grepl("^(psb|wps|macv)_",colnames(sscey01))]
-# 
-# describe(sscey01)
 
 
 ########### Sum Scores Culture & Environment Parent ########### 
@@ -23,13 +14,6 @@ sscep = sscep[,!grepl("^psb|_(nm|nt|na|answered|pr)$",colnames(sscep))]
 sscep = sscep[,grep("src|sex|event|interview|macv|meim", colnames(sscep))]
 describe(sscep)
 
-
-########### Summary Scores Developmental History ########### 
-# devhxss = load_instrument("abcd_devhxss01",abcd_files_path)
-# 
-# devhxss[devhxss == 999] = NA
-# describe(devhxss)
-# devhxss_wide = get_wide_data(devhxss)
 
 
 ########### Sum Scores Traumatic Brain Injury ########### 
@@ -48,27 +32,6 @@ describe(tbi)
 tbi$tbi_ss_nmrpi_b = ifelse(tbi$tbi_ss_nmrpi > 0 , 1, 0)
 tbi$tbi_ss_worst_overall_b = ifelse(tbi$tbi_ss_worst_overall  > 1 , 1, 0)
 tbi[,c("tbi_ss_nmrpi", "tbi_ss_worst_overall")] = NULL
-
-
-################### Sum Scores Mental Health Youth ################### 
-# mhy = load_instrument("abcd_mhy02", abcd_files_path)
-# 
-# mhy = mhy[,grepl("^(src|interview|event|sex|ple|peq)",colnames(mhy))]
-# mhy = mhy[,!grepl("_(nm|nt)$",colnames(mhy))]
-# 
-# mhy$bully_vic = rowSums(mhy[ ,c("peq_ss_relational_victim", "peq_ss_reputation_victim", "peq_ss_overt_victim")])
-# mhy$bully_aggs = rowSums(mhy[ ,c("peq_ss_relational_aggs", "peq_ss_reputation_aggs", "peq_ss_overt_aggression")])
-# 
-# mhy[mhy$eventname == "baseline_year_1_arm_1", grep("ple", colnames(mhy))] = NA
-# 
-# describe(mhy)
-
-
-################### Sum Scores Mental Health Parent ################### 
-# mhp02 = load_instrument("abcd_mhp02", abcd_files_path)
-# mhp02 = mhp02[,grepl("^src|interview|event|sex|ple",colnames(mhp02))]
-# mhp02 = mhp02[,!grepl("_(nm|nt)$",colnames(mhp02))]
-# mhp02[mhp02$eventname == "baseline_year_1_arm_1", grep("ple", colnames(mhp02))] = NA
 
 
 

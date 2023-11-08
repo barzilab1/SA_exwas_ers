@@ -1,6 +1,7 @@
 library(psych)
 library(plyr)
 library(janitor)
+library(fastDummies)
 
 source("config.R")
 source("utility_fun.R")
@@ -97,14 +98,29 @@ crpf$su_select_language___1 = NULL
 crpf[crpf == 999 | crpf == 4] = NA
 
 crpf$su_risk_p_6[crpf$su_risk_p_6 == 2] = NA
-crpf[,grep("su_risk_p_[7-9]", colnames(crpf))] = NULL
 
-col_names = grep("su_risk_p_[1-5]", colnames(crpf), value = T)
+col_names = grep("su_risk_p_[1-5,7-8]", colnames(crpf), value = T)
 col_names_b = paste0(col_names, "_b")
 crpf[, col_names_b] = ifelse(crpf[, col_names] == 0, 1,0)
 crpf[, col_names] = NULL
 
+crpf$su_risk_p_9 = crpf$su_risk_p_9 -7
+crpf$su_risk_p_9[crpf$su_risk_p_9 == -7] = 0
+
 describe(crpf)
+
+
+########### Youth Community Risk and Protective Factors ###########
+ycrpf = load_instrument("abcd_ycrpf01",abcd_files_path)
+
+ycrpf[ycrpf == 999 ] = NA
+
+col_names = grep("su_crpf_avail_[^69]", colnames(ycrpf), value = T)
+col_names_b = paste0(col_names, "_b")
+ycrpf[, col_names_b] = ifelse(ycrpf[, col_names] == 1, 1,0)
+ycrpf[, col_names] = NULL
+
+describe(ycrpf)
 
 
 ########### Parent PhenX Community Cohesion ###########
@@ -270,6 +286,61 @@ pbp01[, positive] = NULL
 describe(pbp01)
 
 
+########### Parent Diagnostic Interview for DSM-5 Background Items Full ###########
+dibf = load_instrument("dibf01",abcd_files_path)
+dibf[dibf == 777 | dibf == 999 | dibf == -1] = NA
+dibf$kbi_p_select_language___1 = NULL
+
+
+########### Parent Diagnostic Interview for DSM-5 Background Items Full ###########
+lpksad = load_instrument("abcd_lpksad01",abcd_files_path)
+lpksad[lpksad == 777 | lpksad == -1 | lpksad == 999] = NA
+lpksad$kbi_l_p_select_language___1 = NULL
+lpksad = lpksad[lpksad$eventname != "3_year_follow_up_y_arm_1",]
+
+
+### combine the 2 instruments
+colnames(lpksad) = sub("_l$", "", colnames(lpksad))
+colnames(lpksad) = sub("_l___", "___", colnames(lpksad))
+
+ind = which(colnames(lpksad) == "kbi_p_c_det_reason___8")
+colnames(lpksad)[ind] = "kbi_p_c_det_reason__8"
+
+ind = which(colnames(lpksad) == "kbipcregfriend_groupopin")
+colnames(lpksad)[ind] = "kbi_p_c_reg_friend_group_opin"
+
+pksad = rbind.fill(dibf, lpksad)
+pksad = remove_empty(pksad, "cols")
+
+pksad[, c("kbi_p_c_guard___13", "kbi_p_c_guard___0", "kbi_p_conflict_causes___0",  
+          "kbi_p_c_det_reason__999", "kbi_p_c_det_reason___999", 
+          "kbi_p_c_det_reason__888", "kbi_p_c_det_reason___888")] = NULL
+
+
+# getting help, suspensions, grades in school - not exposome 
+pksad[, grep("kbi_p_c_spec_serv|kbi_p_c_det_susp|kbi_p_c_det_reason|kbi_p_how_well_c_school|kbi_p_grades_in_school|kbi_p_c_drop_in_grades", colnames(pksad))] = NULL
+# guy trans
+pksad[, grep("kbi_p_c_gay|kbi_p_c_trans", colnames(pksad), )] = NULL
+# mental health services
+pksad[, grep("kbi_p_c_mh_sa|kbi_p_c_age_services|kbi_p_c_(scheck|mental_health|substance_abuse)|kbi_ss_c_(mental_health|substance_abuse)|kbipcserviceschecklistl", colnames(pksad))] = NULL
+
+
+#' 1 = Not in School ; 2 = Regular Public School; 3 = Regular Private School ; 4 = Vocational-Technical School; 
+# 9 = Charter School ; 5 = Cyber School; 6 = Home School; 7 = Specialized School for Youth with Emotional/Behavioral Problems; 8 = Other/ Otra
+pksad = dummy_cols(pksad, select_columns = "kbi_p_c_school_setting", ignore_na = T, remove_selected_columns = T)
+
+pksad$kbi_p_c_best_friend[pksad$kbi_p_c_best_friend == 3] = NA
+pksad$kbi_p_c_best_friend[pksad$kbi_p_c_best_friend == 2] = 0
+
+pksad$kbi_p_c_reg_friend_group[pksad$kbi_p_c_reg_friend_group == 3] = NA
+pksad$kbi_p_c_reg_friend_group[pksad$kbi_p_c_reg_friend_group == 2] = 0
+
+pksad$kbi_p_c_reg_friend_group_len[pksad$kbi_p_c_reg_friend_group_len == 4] = NA
+
+pksad$kbi_p_c_bully[pksad$kbi_p_c_bully == 2] = 0
+# View(as.data.frame(describe(pksad)))
+
+
 ########### Youth Peer Network Health Protective Scaler ###########
 pnhps01 = load_instrument("abcd_pnhps01",abcd_files_path)
 
@@ -321,7 +392,6 @@ occsp01[occsp01 == 777 | occsp01 == 999] = NA
 
 describe(occsp01)
 
-library("fastDummies")
 columns_to_dummy = grep("ocp", colnames(occsp01), value = T)
 occsp01 <- dummy_cols(occsp01, select_columns = columns_to_dummy, ignore_na = T, remove_selected_columns = T)
 describe(occsp01)
@@ -338,6 +408,7 @@ exposome_set = merge(exposome_set, pnsc01, all =T)
 exposome_set = merge(exposome_set, yle01, all =T)
 exposome_set = merge(exposome_set, ple, all =T)
 exposome_set = merge(exposome_set, crpf, all =T)
+exposome_set = merge(exposome_set, ycrpf, all =T)
 exposome_set = merge(exposome_set, pxccp01, all = T)
 # exposome_set = merge(exposome_set, meim, all =T)
 exposome_set = merge(exposome_set, crpbi, all =T)
@@ -348,6 +419,7 @@ exposome_set = merge(exposome_set, tbi, all =T)
 exposome_set = merge(exposome_set, cb, all =T)
 exposome_set = merge(exposome_set, peq01, all =T)
 exposome_set = merge(exposome_set, pbp01, all =T)
+exposome_set = merge(exposome_set, pksad, all =T)
 exposome_set = merge(exposome_set, pnhps01, all =T)
 exposome_set = merge(exposome_set, ysr, all =T)
 exposome_set = merge(exposome_set, peer_deviance, all =T)

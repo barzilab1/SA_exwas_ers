@@ -64,15 +64,17 @@ cna[, c("cna_15_p", "cna_16_p")] = NULL
 
 
 ########### Youth Block Food Screen ###########
-#TODO ask from ABCD for more information about the instrument
-# bkfs = load_instrument("abcd_bkfs01",abcd_files_path)
-# bkfs$ra_confirm = NULL
-# bkfs$bkfs_select_language = NULL
-# bkfs[bkfs == 777] = NA
+# https://www.sciencedirect.com/science/article/pii/S0002822308001740?via%3Dihub
+bkfs = load_instrument("abcd_bkfs01",abcd_files_path)
+bkfs$ra_confirm = NULL
+bkfs$bkfs_select_language = NULL
+bkfs[,c("bkfs_respondentid", "bkfs_sex", "bkfs_age", "sex")] = NULL
+
+bkfs[bkfs == "M"] = NA
+bkfs[bkfs == 777] = NA
 
 # View(describe(bkfs[bkfs$eventname == "2_year_follow_up_y_arm_1", ]))
 
-#odd values - no response from NIH on this data
 
 ########### Youth Screen Time Survey ###########
 stq = load_instrument("abcd_stq01",abcd_files_path)
@@ -146,9 +148,7 @@ stq$screentime_smq_following = ifelse(stq$screentime_smq_following > 5000, NA , 
 stq <- dummy_cols(stq, "screentime_sq2", ignore_na = T, remove_selected_columns = T)
 # View(stq[,grep("screentime_sq2", colnames(stq))])
 
-# remove screentime_odq2, screentime_odq3, screentime_odq4 because nested in screentime_odq1????
-
-View(describe(stq))
+# View(describe(stq))
 
 ########### Parent Screen Time Survey ###########
 stq01 = load_instrument("stq01",abcd_files_path)
@@ -178,7 +178,7 @@ stq01$screentime_device_cell_no_p_e = round(stq01$screentime_device_cell_no_p /2
 #Do you suspect that your child has social media accounts that you are unaware of?
 stq01$screentime_secs_media_p = NULL
 
-View(describe(stq01))
+# View(describe(stq01))
 
 ########### Parent Sleep Disturbance Scale for Children ###########
 sds = load_instrument("abcd_sds01",abcd_files_path)
@@ -211,7 +211,7 @@ ysuip = remove_empty(ysuip, "cols")
 #remove columns with too much missing data
 ysuip = ysuip[, colSums(is.na(ysuip)) < 6000]
 
-View(describe(ysuip))
+# View(describe(ysuip))
 
 
 ### combine the 2 instruments 
@@ -233,15 +233,16 @@ ysu = ysu[, !zero_sd_cols]
 ysu <- dummy_cols(ysu, "caff_max_type", ignore_na = T, remove_selected_columns = T)
 ysu$caff_max_type_0 = NULL
 
-View(describe(ysu))
+# View(describe(ysu))
 
 ysu[,c("interview_date", "interview_age")] = NULL
+
 
 ########### merge all tables ###########
 lifestyle  = merge(yacc, yrb, all = T)
 lifestyle  = merge(lifestyle, saiq, all = T)
 lifestyle  = merge(lifestyle, cna, all = T)
-# lifestyle  = merge(lifestyle, bkfs, all = T)
+lifestyle  = merge(lifestyle, bkfs, all = T)
 lifestyle  = merge(lifestyle, stq, all = T)
 lifestyle  = merge(lifestyle, stq01, all = T)
 lifestyle  = merge(lifestyle, sds, all = T)
@@ -250,8 +251,8 @@ lifestyle  = merge(lifestyle, ysu, all = T)
 # remove 3 year follow up and empty columns
 lifestyle = lifestyle[lifestyle$eventname != "3_year_follow_up_y_arm_1", ]
 lifestyle = remove_empty(lifestyle, "cols")
-zero_sd_cols = sapply(lifestyle, \(x) is.numeric(x) && sd(x, na.rm = T) == 0)
-lifestyle = lifestyle[,!zero_sd_cols]
+# zero_sd_cols = sapply(lifestyle, \(x) is.numeric(x) && sd(x, na.rm = T) == 0)
+# lifestyle = lifestyle[,!zero_sd_cols]
 
 
 # add pregnancy intake  to all time points 
