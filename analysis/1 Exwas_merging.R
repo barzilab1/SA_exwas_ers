@@ -56,11 +56,6 @@ exposome_df = merge(exposome_df, suicide_site[,c("src_subject_id", "eventname")]
 
 exposome_df = remove_cols_with_na(exposome_df) #657
 
-# remove columns with no information/signal
-zero_sd_cols = sapply(exposome_df, \(x) is.numeric(x) && sd(x, na.rm = T) == 0)
-exposome_df = exposome_df[,!zero_sd_cols] #643
-
-
 
 ############################### 
 #### 3. create sub cohorts ####
