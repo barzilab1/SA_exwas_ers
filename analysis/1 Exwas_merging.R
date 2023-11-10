@@ -49,15 +49,16 @@ lifestyle <- read_csv("data/lifestyle_item.csv")
 exposome_df = merge(demographics, exposome_sum)
 exposome_df = merge(exposome_df, exposome_item)
 exposome_df = merge(exposome_df, lifestyle) 
-# total of 1158-6 = 1152 features in abcd
+# total of 1156-6 = 1150 features in abcd
 
 # remove observations with no DV
 exposome_df = merge(exposome_df, suicide_site[,c("src_subject_id", "eventname")])
 
 exposome_df = remove_cols_with_na(exposome_df) #657
 
-# remove columns with low information/signal
-exposome_df = remove_low_signal_cols(exposome_df) #504
+# remove columns with no information/signal
+zero_sd_cols = sapply(exposome_df, \(x) is.numeric(x) && sd(x, na.rm = T) == 0)
+exposome_df = exposome_df[,!zero_sd_cols] #643
 
 
 
@@ -78,7 +79,7 @@ corr_data = exposome_df_train[,grep("src|^sex|interview|event", colnames(exposom
 corrs = cor_auto(corr_data, ordinalLevelMax=8)
 saveRDS(corrs, file = "outputs/corrs_data_all.rds")
 corr_featuers = findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbose = T) 
-exposome_df_train[,corr_featuers] = NULL #451-6 =445
+exposome_df_train[,corr_featuers] = NULL #452-6 =446
 
 View(as.data.frame(describe(exposome_df_train)))
 
@@ -88,13 +89,14 @@ exposome_df_train = scale_features(exposome_df_train)
 write.csv(file = "data/exposome_df_train.csv", x = exposome_df_train, row.names=F, na = "")
 
 
-
-# create testing cohort
+### create testing cohort
 exposome_df_test = merge(exposome_df, DV_suicide_test[,c("src_subject_id", "eventname")])
 
 # clean outliers 
 exposome_df_test = remove_outliers(exposome_df_test)
-# don't remove low signal in testing 
+# don't remove low signal in testing. remove only no variance as in any case they don't change the ers but have impact on the imputation 
+zero_sd_cols = sapply(exposome_df_test, \(x) is.numeric(x) && sd(x, na.rm = T) == 0)
+exposome_df_test = exposome_df_test[,!zero_sd_cols]
 
 write.csv(file = "data/exposome_df_test.csv", x = exposome_df_test, row.names=F, na = "")
 

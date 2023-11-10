@@ -72,6 +72,10 @@ bkfs[,c("bkfs_respondentid", "bkfs_sex", "bkfs_age", "sex")] = NULL
 
 bkfs[bkfs == "M"] = NA
 bkfs[bkfs == 777] = NA
+bkfs = type.convert(bkfs)
+
+# as we don,t know the different kindד, remove them all [in any case they have too much missing data]
+bkfs[, grep("kind$", colnames(bkfs))] = NULL
 
 # View(describe(bkfs[bkfs$eventname == "2_year_follow_up_y_arm_1", ]))
 

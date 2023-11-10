@@ -127,6 +127,6 @@ dataset[, time := {
 }]
 
 
-write.csv(file = paste0("data/dataset_ERS.csv"), dataset, row.names = F)
+write.csv(file = paste0("data/dataset_ERS.csv"), dataset, row.names = F, na = "")
 
 
