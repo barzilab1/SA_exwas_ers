@@ -259,7 +259,7 @@ lifestyle = remove_empty(lifestyle, "cols")
 # lifestyle = lifestyle[,!zero_sd_cols]
 
 
-# add pregnancy intake  to all time points 
+# add pregnancy intake to all time points 
 lifestyle = merge(lifestyle, cna_cross_timepoints, all.x = T)
 
 write.csv(lifestyle, "data/lifestyle_item.csv", row.names = F, na = "")

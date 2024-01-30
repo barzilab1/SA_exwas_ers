@@ -49,12 +49,12 @@ lifestyle <- read_csv("data/lifestyle_item.csv")
 exposome_df = merge(demographics, exposome_sum)
 exposome_df = merge(exposome_df, exposome_item)
 exposome_df = merge(exposome_df, lifestyle) 
-# total of 1156-6 = 1150 features in abcd
+# total of 1160-6 = 1154 features in abcd
 
 # remove observations with no DV
 exposome_df = merge(exposome_df, suicide_site[,c("src_subject_id", "eventname")])
 
-exposome_df = remove_cols_with_na(exposome_df) #657
+exposome_df = remove_cols_with_na(exposome_df) #661
 
 
 ############################### 
@@ -66,15 +66,15 @@ exposome_df_train = merge(exposome_df, DV_suicide_train[,c("src_subject_id", "ev
 
 # clean outliers 
 exposome_df_train = remove_outliers(exposome_df_train)
-exposome_df_train = remove_low_signal_cols(exposome_df_train)
+exposome_df_train = remove_low_signal_cols(exposome_df_train) #509
 
 
 # check correlation and remove above 0.9
 corr_data = exposome_df_train[,grep("src|^sex|interview|event", colnames(exposome_df_train), invert = T)]
 corrs = cor_auto(corr_data, ordinalLevelMax=8)
-saveRDS(corrs, file = "outputs/corrs_data_all.rds")
+saveRDS(corrs, file = "data/corrs_data_all.rds")
 corr_featuers = findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbose = T) 
-exposome_df_train[,corr_featuers] = NULL #452-6 =446
+exposome_df_train[,corr_featuers] = NULL #453-6 =447
 
 View(as.data.frame(describe(exposome_df_train)))
 

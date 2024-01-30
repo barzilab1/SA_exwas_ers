@@ -72,20 +72,21 @@ saveRDS(dataset_test_imputed, "outputs/dataset_test_imputed.RDS" )
 #### 2. calculate ERS ####
 ##########################
 exwas_results <- read_csv("outputs/exwas_results.csv")
-cut_off = exwas_results[exwas_results$fdr <= 0.05, c("variable", "coefficients")]
-
+cut_off = exwas_results[exwas_results$fdr <= 0.05, c("variable", "coefficients")] # 99
 
 # calculate scores
 dataset_test_imputed$ers = apply(dataset_test_imputed[,cut_off$variable], 1 , function(r){
   return(sum(r*cut_off$coefficients, na.rm = T))
 })
-
 dataset_test_imputed$ers_z = scale(dataset_test_imputed$ers)[,1]
 
 
-##### grant - will be removed later 
-# cut_off_grant = individual_level_exwas_results[(individual_level_exwas_results$or <= 1/1.2 & individual_level_exwas_results$or > 0 )| individual_level_exwas_results$or >= 1.2 , c("variable", "coefficients", "or")]
-##### end grant
+cut_off_sensitivity = exwas_results[(exwas_results$or <= 1/1.2 & exwas_results$or > 0 )| exwas_results$or >= 1.2 , c("variable", "coefficients")] #300
+
+dataset_test_imputed$ers_sensitivity = apply(dataset_test_imputed[,cut_off_sensitivity$variable], 1 , function(r){
+  return(sum(r*cut_off_sensitivity$coefficients, na.rm = T))
+})
+dataset_test_imputed$ers_sensitivity_z = scale(dataset_test_imputed$ers_sensitivity)[,1]
 
 
 
@@ -94,7 +95,6 @@ dataset_test_imputed$ers_z = scale(dataset_test_imputed$ers)[,1]
 ###############################################
 FH_suicide <- read_csv("data/family_history.csv")
 suicide_test <- read_csv("data/DV_suicide_test.csv")
-genetics <- read_csv(file.path(abcd_genetics_path, "genetic.csv"))
 lgbt <- read_csv("data/lgbtqia.csv")
 cbcl = read_csv("data/cbcl.csv")
   
@@ -102,9 +102,9 @@ cbcl = read_csv("data/cbcl.csv")
 dataset = merge(suicide_test, race, all.x = T)
 dataset = merge(dataset, FH_suicide[,c("src_subject_id", "famhx_ss_momdad_scd_p")], all.x = T)
 dataset = merge(dataset, lgbt[,c("src_subject_id", "eventname", "LGBT", "LGBT_inclusive")])
-dataset = merge(dataset, genetics[,c("src_subject_id", "suicide_PRSice_Pt0_05", "genetic_afr")], all.x = T)
+# dataset = merge(dataset, genetics[,c("src_subject_id", "suicide_PRSice_Pt0_05", "genetic_afr")], all.x = T)
 dataset = merge(dataset, dataset_test_imputed[,c("src_subject_id", "eventname", "interview_age", "sex",
-                                                     "ers", "ers_z")] )
+                                                     "ers", "ers_z", "ers_sensitivity", "ers_sensitivity_z")] )
 dataset = merge(dataset, cbcl[,c("src_subject_id", "eventname", "interview_age", "sex", 
                                   "cbcl_scr_syn_totprob_t", "cbcl_scr_syn_external_t")] )
 
@@ -113,20 +113,13 @@ dataset[, race_eth := {
   fcase(
     ethnicity_hisp == 0 & race_black == 1 , "NH-Black",
     ethnicity_hisp == 0 & race_white == 1 , "NH-White",
-    ethnicity_hisp == 1 , "Hispanic"
+    ethnicity_hisp == 1 , "Hispanic",
+    default = NA
   )
 }]
 dataset[,table(race_eth, ethnicity_hisp, useNA = "ifany")]
 
-dataset[, time := {
-  fcase(
-    eventname == "baseline_year_1_arm_1", "baseline",
-    eventname == "1_year_follow_up_y_arm_1", "1 year follow up",
-    eventname == "2_year_follow_up_y_arm_1", "2 year follow up"
-  )
-}]
 
-
-write.csv(file = paste0("data/dataset_ERS.csv"), dataset, row.names = F, na = "")
+write.csv(file = "data/dataset_ERS.csv", dataset, row.names = F, na = "")
 
 

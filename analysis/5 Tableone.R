@@ -2,18 +2,13 @@ library(tableone)
 library(data.table)
 library(plyr)
 
-demo_race = read.csv("data/demo_race.csv")
-train = read.csv(file = "data/DV_suicide_train.csv")
-test = read.csv(file = "data/DV_suicide_test.csv")
-lgbt <- read.csv("data/lgbtqia.csv")
-
-
 
 create_wide_dataset = function(df){
   
   df$timepoint = sub("_year.*", "", df$eventname)
   
-  df_wide = reshape(df[,c("src_subject_id", "sex", "SA_y","timepoint", "matched_group","age", "LGBT", "LGBT_inclusive" )], direction = "wide", 
+  df_wide = reshape(df[,c("src_subject_id", "sex", "SA_y","timepoint", "matched_group","age", "LGBT", "LGBT_inclusive" )], 
+                    direction = "wide", 
                     idvar = c("src_subject_id", "sex", "matched_group"), timevar = "timepoint", sep = "__")
   setDT(df_wide)
   
@@ -35,6 +30,13 @@ create_wide_dataset = function(df){
   
   return(df_wide)
 }
+
+
+demo_race = read.csv("data/demo_race.csv")
+train = read.csv(file = "data/DV_suicide_train.csv")
+test = read.csv(file = "data/DV_suicide_test.csv")
+lgbt <- read.csv("data/lgbtqia.csv")
+
 
 train$age = train$interview_age / 12
 test$age = test$interview_age / 12
@@ -59,9 +61,7 @@ tab <- CreateTableOne(vars = vars, data = df,  factorVars = vars[grep("age", var
 table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
 write.csv(table1, file = "outputs/Table1.csv")
 
-
-# entire cohort
-tab <- CreateTableOne(vars = colnames(demo_race)[-1], data = demo_race  )
-table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
-table1
-
+# only in testing
+tab <- CreateTableOne(vars = vars, data = train_wide,  factorVars = vars[grep("age", vars, invert = T)] , strata = "SA_y_ever", addOverall = T)
+table2 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
+table2

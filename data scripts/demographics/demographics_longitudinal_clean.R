@@ -30,7 +30,13 @@ demographics_set[, gender:= demo_gender_id_v2_l-1]
 demographics_set[, demo_gender_id_v2_l:= NULL]
 
 ########### parents education
-demographics_set[, parents_avg_edu:= rowMeans(.SD, na.rm = T), .SDcols = c("demo_prnt_ed_v2_l", "demo_prtnr_ed_v2_l")]
+demographics_set[, parents_high_edu := apply(.SD, 1, max, na.rm = T), .SDcols = c("demo_prnt_ed_v2_l", "demo_prtnr_ed_v2_l")]
+demographics_set[parents_high_edu == -Inf, parents_high_edu := NA]
+demographics_set[, highschool_below := (parents_high_edu < 13)*1]
+demographics_set[, highschool_diploma := (parents_high_edu == 13)*1]
+demographics_set[, post_highschooler_education := (parents_high_edu > 13 & parents_high_edu < 18)*1 ]
+demographics_set[, bachelor := (parents_high_edu == 18)*1 ]
+demographics_set[, master_above := (parents_high_edu > 18)*1 ]
 
 ########### family income
 demographics_set[,household_income:= demo_comb_income_v2_l]
@@ -73,7 +79,8 @@ demographics_set[, demo_fam_poverty := {
 
 selected_features = c("src_subject_id", "sex", "sex_br", "age", "eventname" ,"interview_date", "interview_age" , 
                       "separated_or_divorced", "parents_married", "living_with_partenr_or_married",
-                       "parents_avg_edu", "household_income", "demo_fam_poverty")
+                      "highschool_below", "highschool_diploma", "post_highschooler_education", "bachelor", "master_above", 
+                      "household_income", "demo_fam_poverty")
 
 write.csv(file = "data/demographics_long.csv", x = demographics_set[,..selected_features], row.names=F, na = "")
 

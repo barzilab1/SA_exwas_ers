@@ -10,13 +10,12 @@ source("config.R")
 
 
 
-
 tagged_data = read_excel(file.path(project_path, "ExWAS ABCD Dictionary.xlsx"))
 
 exwas_results <- read_csv("outputs/exwas_results.csv")
-exwas_results$variable = gsub("_(b|z)$", "", exwas_results$variable)
+exwas_results$variable = sub("_(b|z)$", "", exwas_results$variable)
 #after removing _z there is also _br
-exwas_results$variable = gsub("_br$", "", exwas_results$variable)
+exwas_results$variable = sub("_br$", "", exwas_results$variable)
 
 dataset_descriptive = merge(exwas_results[, c("variable", "fdr", "or", "lowerci", "upperci")], 
                             tagged_data[,c("var_name", "Category", "table_name_nda", "var_label")], 
@@ -26,14 +25,12 @@ setDT(dataset_descriptive)
 dataset_descriptive = dataset_descriptive[order(or, decreasing = T),]
 dataset_descriptive[fdr < 0.05 , forest_number := 1:.N ]
 
-dataset_descriptive[is.na(Category), variable]
-dataset_descriptive[is.na(Category), Category := "Lifestyle"]
-
 
 # sup table: all exwas features 
 write.csv(dataset_descriptive, "outputs/abcd_exwas_features_supT1.csv", na = "", row.names = F)
 
 
+TEXT_SIZE = 30
 
 #############################
 ##### 1. Manhattan plot #####
@@ -60,7 +57,6 @@ labels = c("0",".05", ".005", ".0005", "5e-05","5e-07", "5e-10","5e-13", "5e-15"
 names(labels) = c(0, -log10(c(.05, .005, .0005, 5e-05, 5e-07, 5e-10,5e-13, 5e-15, 5e-20)))
 
 
-TEXT_SIZE = 30
 manh_plot <- ggplot(manhattan_db, aes(x = position, y = -log10(fdr), color = as.factor(Category))) +
   # Show all points
   geom_point( size=1.5) +
@@ -71,8 +67,8 @@ manh_plot <- ggplot(manhattan_db, aes(x = position, y = -log10(fdr), color = as.
   # add p value horizontal line 
   geom_hline(yintercept = -log10(0.05), color = "black", linetype = "dashed") + 
   
-  labs(x = NULL, 
-       y = "P-value threshold") + 
+  labs(x = element_blank(), 
+       y = "P-value Threshold") + 
   theme_minimal() +
   theme( 
     legend.position = "none",
@@ -108,30 +104,29 @@ forest_plot=ggplot(forest_db, aes(y=feature, x=or, xmin=lowerci, xmax=upperci))+
   #Specify the limits of the x-axis and relabel it to something more meaningful
   scale_x_continuous( name='Odds Ratio', limits=c(0,16.5), breaks = c(0,1,seq(5,16.5, 5)))+ 
   #Give y-axis a meaningful label
-  ylab("")+ #
+  ylab(" ")+ # keep space for the combined plot
   #Add a vertical dashed line indicating an effect size of 1, for reference
   geom_vline(xintercept=1, color='black', linetype='dashed')+
   #Create sub-plots (i.e., facets) based on levels of setting
   #And allow them to have their own unique axes (so authors don't redundantly repeat)
   # facet_grid(Category~., scales= 'free', space='free') + 
   #Apply my APA theme
-  theme_bw()+
+  theme_minimal() + #theme_bw()+
   theme(panel.grid.major=element_blank(),
         panel.grid.minor=element_blank(),
         panel.border=element_blank(),
         axis.line=element_line(),
         axis.text.x = element_text(size = TEXT_SIZE, face = "bold", color = "black"),
         axis.text.y = element_text(size = TEXT_SIZE/1.5, face = "bold", color = "black"),
-        text = element_text(color='black',size = TEXT_SIZE, face="bold"))
-        # legend.position='none',
-        # strip.text.y.right = element_text(angle = 0))
+        text = element_text(color='black',size  = TEXT_SIZE, face="bold"))
+        
 forest_plot
 
 
 #############################
 ##### 3. ERS sub groups #####
 #############################
-sub_group_db = read.csv("data/dataset_ERS.csv") 
+sub_group_db = read_csv("data/dataset_ERS.csv") 
 setDT(sub_group_db)
 sub_group_db = sub_group_db[eventname == "2_year_follow_up_y_arm_1",]
 
@@ -145,8 +140,9 @@ sub_group_db[, LGBT_inclusive_ch := {
 y_text = "Standardized Exposome Sum Score"
 
 # LGBT_inclusive_ch
-kruskal.test( ers_z~LGBT_inclusive_ch,  sub_group_db )
-wilcox.test( ers_z~LGBT_inclusive_ch,  sub_group_db )
+# kruskal.test( ers_z~LGBT_inclusive_ch,  sub_group_db )
+# wilcox.test( ers_z~LGBT_inclusive_ch,  sub_group_db )
+t.test( ers_z~LGBT_inclusive_ch,  sub_group_db )
 
 LGBT_plot = ggbetweenstats(
   data = sub_group_db,
@@ -167,20 +163,28 @@ LGBT_plot = ggbetweenstats(
     annotation = c("***"),
     vjust = 0.5
   )+
+  scale_y_continuous(breaks = c(0,4,8,12)) +
   scale_color_manual(values = c("#158EA7", "#844D88","#8DC34A"))+ 
   theme_bw()+
   theme(
     plot.title = element_text(size = TEXT_SIZE, face = "bold"),
     legend.position='none',
     plot.subtitle = element_blank(),
+    panel.background = element_blank(), #transparent panel bg
+    plot.background = element_blank(), #transparent plot bg
     text = element_text(size = TEXT_SIZE, face="bold"),
     axis.text = element_text(color='black'))
+
 LGBT_plot
 
 
 # race
-kruskal.test( ers_z~race_eth,  sub_group_db)
-sub_group_db[,pairwise.wilcox.test(ers_z ,race_eth, p.adj='fdr')]
+# kruskal.test( ers_z~race_eth,  sub_group_db)
+# sub_group_db[,pairwise.wilcox.test(ers_z ,race_eth, p.adj='fdr')]
+
+summary(aov(ers_z~race_eth,  sub_group_db))
+TukeyHSD(aov(ers_z~race_eth,  sub_group_db), p.adjust.methods = 'fdr')
+
 
 race_plot = ggbetweenstats(
   data = sub_group_db,
@@ -204,29 +208,32 @@ race_plot = ggbetweenstats(
     annotation = c("***","***","***"),
     vjust = 0.5
   )+
-  scale_color_manual(values = c("#158EA7", "#844D88","#8DC34A"))+ 
+  scale_color_manual(values = c("#158EA7", "#844D88","#8DC34A"))+
   theme_bw()+
   theme(
     plot.title = element_text(size = TEXT_SIZE, face = "bold"),
     legend.position='none',
     plot.subtitle = element_blank(),
+    panel.background = element_blank(), #transparent panel bg
+    plot.background = element_blank(), #transparent plot bg
     text = element_text(size = TEXT_SIZE, face="bold"),
     axis.text = element_text(color='black'))
 race_plot
-
 
 #############################
 ##### 4. organize plot #####
 #############################
 
-sub_groups_plot = ggarrange(LGBT_plot, race_plot, ncol = 1, 
+sub_groups_plot = ggarrange( race_plot, LGBT_plot, ncol = 1, 
                             labels = c("C", "D"), font.label = list(size = TEXT_SIZE, color = "black"))
-bottom = ggarrange(forest_plot,sub_groups_plot, nrow = 1, ncol = 2 )
+
+bottom = ggarrange(forest_plot, sub_groups_plot, nrow = 1, ncol = 2 )
+
 p = ggarrange(manh_plot, bottom, ncol = 1, nrow = 2, heights = c(0.75,2), 
-              labels = "AUTO", font.label = list(size = TEXT_SIZE, color = "black"))
+              labels = "AUTO" , font.label = list(size = TEXT_SIZE, color = "black"))
 
 
-ggsave(filename ="plots/combined_figure_2.png", p, width = 30, height = 35, dpi=400)
+ggsave(filename ="plots/combined_figure_2.tiff", p, width = 30, height = 35, device='tiff', dpi = 300)
 
 
 
