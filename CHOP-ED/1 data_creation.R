@@ -23,8 +23,8 @@ patients = bq_table_download(bq_project_query(project_id, query_patient), bigint
 bhs_main = bq_table_download(bq_project_query(project_id, query_bhs), bigint = "integer64")
 coverage_data = bq_table_download(bq_project_query(project_id, query_coverage), bigint = "integer64")
 
-# remove redundant columns 
-bhs_main[,grep("facility|date_(referred|attended)|extracted_date|(t|e)_datetime|form|date_of_birth|insurance_", colnames(bhs_main), value = T)] = NULL
+# remove redundant columns
+bhs_main[,grep("facility|date_(referred|attended)|extracted_date|form|e_datetime|date_of_birth|insurance_", colnames(bhs_main))] = NULL
 
 # convert to NA and lower strings that are not ID
 character_cols = sapply(bhs_main, is.character) & !grepl("_id", names(bhs_main))

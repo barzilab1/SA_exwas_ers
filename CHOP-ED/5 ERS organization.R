@@ -21,7 +21,7 @@ binary_features = testing_df[, names(which(sapply(.SD, function(col){
   return(length(unique_values) == 2 && all(unique_values %in% c(0, 1)))
 })))]
 
-factor_features = c(binary_features, "race", "gender_new", "race_eth")
+factor_features = c(binary_features, "race", "gender_new", "race_eth", "bhst01a_br")
 testing_df[, (factor_features) := lapply(.SD, as.factor), .SDcols = factor_features]
 
 # impute
@@ -44,16 +44,16 @@ df_testing_imputed[, (binary_features) := lapply(.SD, \(x) as.numeric(as.charact
 ##########################
 #### 2. Calculate ERS ####
 ##########################
-exwas_results = read_csv("outputs/exwas_results.csv") #18 features 
+exwas_results = read_csv("outputs/exwas_results.csv") #17 features 
 setDT(exwas_results)
 # get exwas features
 exposome_cut_off = exwas_results[fdr <= 0.05, c("variable", "coefficients")] # 15 features 
 
 
 df_testing_imputed[, ers := apply(.SD, 1 , \(r) {
-                      return(sum(r*exposome_cut_off$coefficients))
-                    }), 
-                   .SDcols = exposome_cut_off$variable]
+  return(sum(r*exposome_cut_off$coefficients))
+}), 
+.SDcols = exposome_cut_off$variable]
 
 
 df_testing_imputed[ ,ers_z := scale(ers)]

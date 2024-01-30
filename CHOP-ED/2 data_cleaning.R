@@ -14,7 +14,6 @@ dataset = merge(dataset, coverage, all.x = T)
 
 setDT(dataset)
 
-
 dataset[payor_category == "SELF-PAY", payor_category := NA]
 dataset[, MEDICAID := {
   fcase(
@@ -25,8 +24,6 @@ dataset[, MEDICAID := {
 }]
 dataset[,table(payor_category, MEDICAID, useNA = "if")]
 
-# keep only kids age 12 - 18
-dataset = dataset[age_at_screen >= 12 & age_at_screen <= 18,]
 
 ###############################
 #### 1. clean demographics ####
@@ -43,6 +40,7 @@ dataset[race == "not sure", race := NA]
 dataset[, table(race, useNA = "if")]
 dataset[, same_race := length(unique(race)) == 1, by = pat_id]
 # View(dataset[same_race == F,c("pat_id", "encounter_id", "race.x", "race.y", "race")])
+dataset[, race := ifelse(is.na(race), race[!is.na(race)], race), by = pat_id]
 dataset[,c("race.x", "race.y", "same_race") := NULL]
 
 
@@ -89,7 +87,8 @@ dataset[, race_eth := {
   fcase(
     race_white_non_hisp == 1, "NH-White",
     race_black_non_hisp == 1, "NH-Black",
-    race_white_non_hisp == 0, "Hispanic"
+    ethnicity_new == 1, "Hispanic",
+    default = NA
   )
 }]
 
@@ -126,17 +125,18 @@ dataset[, sex := {
 dataset[,table(sex, sex_abbr, useNA = "if")]
 
 
-dataset[, gender_new := fifelse(!is.na(gender), gender, tolower(gender_identity_name ))]
+dataset[, gender_new := fifelse(!is.na(gender_identity_name), tolower(gender_identity_name), gender )]
 dataset[, table(gender_new, gender, useNA = "ifany")]
 dataset[, table(gender_identity_name, gender_new, useNA = "ifany")]
 dataset[, TRANS := {
   fcase(
+    gender_new %in% c("gender","transgender"), 1,
     gender_new %in% c("female","male"), 0,
     !is.na(gender_new), 1,
     default = NA
   )
 }]
-dataset[, table(gender_new, TRANS, useNA = "ifany")]
+dataset[, table(gender_new, TRANS, useNA = "ifany")] #TRANS/queer/non-binary/non-conforming 
 
 #############################
 #### 2. change exposures ####
@@ -212,7 +212,7 @@ dataset[,table(bhssa01a, bhssa01, useNA = "if")]
 dataset[,table(bhssa01b, bhssa01, useNA = "if")]
 dataset[bhssa01 == 0, c("bhssa01a", "bhssa01b") := 0]
 
-# fill also "bhssa02" with 0 from "bhssa02a" - alcohol
+# fill "bhssa02a" with 0 from "bhssa02" - alcohol
 dataset[,table(bhssa02a, bhssa02, useNA = "if")]
 dataset[bhssa02 == 0, bhssa02a := 0]
 
@@ -238,7 +238,7 @@ dataset[, bhst01a_br := {
   )
 }]
 
-dataset[,table(bhst01a_br, bhst01a, bhst01, useNA = "if")]
+dataset[,table(bhst01a, bhst01a_br, bhst01, useNA = "if")]
 
 
 # bhst01b - Is this [the fight] why you are here today?
@@ -280,12 +280,6 @@ dataset[birth_weight_kg > 11 | birth_weight_kg < 0.3 , birth_weight_kg := NA]
 dataset[ , birth_weight_kg_b := fifelse(birth_weight_kg < 2.5, 1, 0)]
 dataset[ , birth_weight_kg := NULL]
 
-###############################################
-#### 3. diagnoses #### 
-###############################################
-dataset[ , table(depression_score, useNA = "if")]
-dataset[ , table(traumatic_distress_score, useNA = "if")]
-
 
 ###############################################
 #### 4. select exposome features & dataset #### 
@@ -295,22 +289,30 @@ demogrphics_f = c("age_at_screen" ,"sex_abbr", "sex","race_black_non_hisp","race
                   "race","race_black", "race_white" ,"ethnicity_new", "gender_new", "TRANS", "race_eth")
 exposome_f = grep("bhssc|bhsf|bhssf0|bhssa0|bhssx|sx02|bhsed02|bhst01(a|b|d)|bhst0[2-4]|bhsb|military_child|MEDICAID|birth_weight", 
                   colnames(dataset), value = T) #36
-diagnoses_f = c("depression_score", "traumatic_distress_score")
 outcome = "bhssu04"
-dataset_exposome = dataset[,.SD, .SDcols = c("pat_id", "encounter_id", "contact_date",
-                                               demogrphics_f, exposome_f, diagnoses_f, outcome )]
+
+dataset_exposome = dataset[,.SD, .SDcols = c("pat_id", "encounter_id", "contact_date", "started_at_datetime",
+                                             demogrphics_f, exposome_f, outcome )]
 dataset_exposome = dataset_exposome[!is.na(bhssu04),]
 dataset_exposome = remove_empty(dataset_exposome)
+#interval - the time between encounter_id's effective time and started_at_datetime  
 
+# keep only kids age 12 - 18
+dataset_exposome = dataset_exposome[age_at_screen >= 12 & age_at_screen <= 18,]
 
 #### add visit number (time point) ####
 dataset_exposome[, contact_date := as.Date(contact_date)]
 dataset_exposome = dataset_exposome[order(contact_date)]
-dataset_exposome[, visit_number := 1:.N, by = pat_id ]
-
+dataset_exposome[, visit_number := 1:.N, by = .(pat_id) ]
+# There are cases of several entries for the same encounter 
+dataset_exposome[, visit_number := min(visit_number), by = .(pat_id, encounter_id) ]
 
 # in this project, we use only first visit 
-dataset_exposome = dataset_exposome[visit_number == 1,]
+dataset_exposome = dataset_exposome[,.SD[visit_number == min(visit_number)], by=pat_id]
+
+#remove kids who completed twice in the same encounter id
+ids_to_remove = dataset_exposome$pat_id[which(duplicated(dataset_exposome$pat_id))]
+dataset_exposome = dataset_exposome[!pat_id %in% ids_to_remove, ]
 
 
 ###########################################################
@@ -321,14 +323,13 @@ dataset_exposome = dataset_exposome[visit_number == 1,]
 missing_data_columns = dataset_exposome[, names(which(colSums(is.na(.SD)) > 0.1*.N))]
 dataset_exposome[, (missing_data_columns) := NULL]
 
-########################################################
-### 6. remove columns with less then 1 information ###
-########################################################
+#######################################################
+### 6. remove columns with less then 1% information ###
+#######################################################
 # dataset_exposome = type.convert(dataset_exposome) # is.numeric(x) &&
 vari_delete = dataset_exposome[, names(which(sapply(.SD,\(x)  (sum(x != 0, na.rm = T) / sum(!is.na(x))  < 0.01))) )
                                , .SDcols = setdiff(exposome_f, missing_data_columns)]
 dataset_exposome[, (vari_delete) := NULL] 
-
 
 write.csv(dataset_exposome, "data/exposome_full_clean.csv", na = "", row.names = F)
 

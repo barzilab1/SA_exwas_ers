@@ -68,7 +68,7 @@ outcome = "bhssu04"
 
 
 results = run_models(IVs, train_df)
-tab_model(results$models, show.intercept = F, file = "outputs/exwas_results_models.doc" )
+tab_model(results$models, show.intercept = F, file = "outputs/exwas_results_models.xls" )
 
 results$results$fdr = p.adjust(results$results$p_value, "fdr")
 write.csv(results$results, "outputs/exwas_results.csv", row.names = F)

@@ -17,7 +17,8 @@ setDT(df)
 
 cov = c("pat_id", "sex", "age_at_screen", "ethnicity_new")
 df_rw = df[race == "white", ..cov]
-df_rb = df[race == "black or african american", .SD, .SDcols = c("bhssu04",cov)] 
+df_rb = df[race == "black or african american", .SD, .SDcols = c("bhssu04",cov)]
+# df_rb = df[race == "black or african american", ..cov] 
 df_r_nb_nw = df[!(race %in% c("black or african american","white")) , .SD, .SDcols = c("race",cov)]
 
 set.seed(131)
@@ -48,8 +49,8 @@ df.match3 <- nonbimatch(df.mdm3)
 #OR
 # df.1$matches$halves
 
-group1 = c(df.match1$halves$Group1.ID, df.match2$halves$Group1.ID, df.match3$halves$Group1.ID)
-group2 = c(df.match1$halves$Group2.ID, df.match2$halves$Group2.ID, df.match3$halves$Group2.ID)
+group1 = c(df.match1$halves$Group1.ID, df.match2$halves$Group1.ID, df.match3$halves$Group2.ID)
+group2 = c(df.match1$halves$Group2.ID, df.match2$halves$Group2.ID, df.match3$halves$Group1.ID)
 
 df[pat_id %in% group1, group := 1]
 df[pat_id %in% group2, group := 2]
@@ -70,6 +71,7 @@ tab2 <- CreateTableOne(vars = c(category_f, "age_at_screen", "gender_new"), data
 table2 <- print(tab2, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
 table2
 
+write.csv(table2, "outputs/table1.csv")
 write.csv(df[,c("pat_id", "group")], "data/matched_groups.csv", na = "", row.names = F)
 
 #######################################
@@ -88,7 +90,7 @@ set.seed(131)
 corr_data = train_df[ ,.SD ,.SDcols = grep("bhs(?!su04)|medi", colnames(train_df), ignore.case = T, perl = T)]
 corrs = cor_auto(corr_data)
 corr_featuers = findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbose = T) 
-train_df[, (corr_featuers) := NULL] # 18 exposures
+train_df[, (corr_featuers) := NULL] # 17 exposures
 
 View(as.data.frame(describe(train_df)))
 train_df[, bhssa01a_z := scale(bhssa01a)]

@@ -2,6 +2,7 @@ library(data.table)
 library(sjPlot)
 library(readr)
 library(tableone)
+library(performance)
 
 setwd("~/sa_exwas")
 
@@ -16,19 +17,20 @@ outcome = "bhssu04"
 mod1 = glm(paste0(outcome, " ~ ", paste(covariates, collapse = " + ") ), family = binomial, data = testing_df)
 mod2 = glm(paste0(outcome, " ~ ers_z + ", paste(covariates, collapse = " + ") ), family = binomial, data = testing_df)
 
-t1 = tab_model(mod1, mod2, show.intercept = F, show.ngroups = T, show.aic = T) 
-t1
+tab_model(mod1, mod2, show.intercept = F, show.ngroups = T, show.aic = T, file = "outputs/main_models.xls") 
 
 anova(mod1, mod2, test="Chisq")
 
-r2_nagelkerke(mod1) # 0.02488547 
-r2_nagelkerke(mod2) # 0.1859619
+r2_nagelkerke(mod1) # 0.02547021 
+r2_nagelkerke(mod2) # 0.193269
 
 
 
 #############################
 #### 2. ERS by subgroups ####
 #############################
+
+testing_df[, hist(ers_z )]
 
 testing_df[, wilcox.test(ers_z ~ TRANS )]
 testing_df[, kruskal.test(ers_z ~ TRANS )]
@@ -53,11 +55,5 @@ tab_model(modq1,
           show.intercept = F, show.ngroups = T, show.aic = T, show.r2 = T)
 
 
-# q group [1]	0.45	0.33 – 0.63	<0.001
-# q group [2]	0.51	0.37 – 0.69	<0.001
-# q group [4]	2.25	1.79 – 2.83	<0.001
-# q group [5]	6.23	5.06 – 7.73	<0.001
-
-
-
+CreateTableOne(var = "q_group", factorVars = "q_group", strata = outcome, data = testing_df, addOverall = T)
 
