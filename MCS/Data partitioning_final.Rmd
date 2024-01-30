@@ -1,0 +1,353 @@
+---
+title: "Data partitioning"
+author: "Yira Zhang"
+date: "2023-08-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Demographic
+
+```{r}
+# MCSID, sex, age at interview*, ethnicity 
+library(readr)
+library(tidyverse)
+mcs_demo_clean <- read.csv("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/Suicide-exwas/mcs_demo_clean_final_NOV2023.csv")
+mcs_demo_clean <- mcs_demo_clean[,-1]
+
+mcs_exp_clean <- read.csv("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/Suicide-exwas/mcs_exp_cleaned_NOV2023.csv")
+mcs_exp_clean <- mcs_exp_clean[,-1]
+
+mcs7_cm_interview <- read_delim("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data/UKDA-8682-tab/tab/mcs7_cm_interview.tab")
+```
+
+```{r}
+remove_cols_with_na = function(df){
+    vari_delete = colnames(df)[which(colSums(is.na(df)) >= 0.10*nrow(df))]
+    df[, vari_delete] = NA
+  df = remove_empty(df, which = "cols")
+  
+  return(df)
+}
+
+
+remove_low_signal_cols = function(df){
+  vari_delete = sapply(df, function(x) {
+    is_numeric <- is.numeric(x)
+    is_integer <- is.integer(x)
+  
+    if (is_numeric || (is_integer)) {
+      # If numeric, or integer (not ordered factor), check variance
+      return(var(x, na.rm = TRUE) < 0.01)
+    } else {
+      return(FALSE)
+    }
+  })
+  
+  df[, names(which(vari_delete))] = NA
+  df = remove_empty(df, which = "cols")
+  return(df)
+}
+
+```
+
+```{r}
+mcs_exp_clean <- remove_cols_with_na(mcs_exp_clean)
+# Ncol = 1255 -2IDs = 1253 variables
+```
+
+
+```{r}
+mcs7_cm_interview$cmid <- paste(mcs7_cm_interview$MCSID, mcs7_cm_interview$GCNUM00, sep = "")
+mcs7_lgbt <- mcs7_cm_interview %>% select(MCSID,cmid, GCGNID00, GCSXAT00)
+mcs7_lgbt <- mcs7_lgbt %>% filter(cmid %in% mcs_demo_clean$cmid)
+
+mcs_demo_clean_lgbt <- merge(mcs_demo_clean, mcs7_lgbt, by = c("cmid","MCSID"))
+mcs_demo_clean_lgbt$GCGNID00[mcs_demo_clean_lgbt$GCGNID00 %in% c(7,-8,-9, -1)] <- NA
+mcs_demo_clean_lgbt$GCSXAT00[mcs_demo_clean_lgbt$GCSXAT00 %in% c(7,8,9)] <- NA
+```
+
+```{r}
+# validate self-identified male/female with sex at birth
+mcs_demo_clean_lgbt$validation <- ifelse((mcs_demo_clean_lgbt$GCGNID00 == 1 & mcs_demo_clean_lgbt$sex == 1) |
+                                  (mcs_demo_clean_lgbt$GCGNID00 == 2 & mcs_demo_clean_lgbt$sex == 2),0,1)
+
+# View the updated mcs_demo_clean_lgbt frame
+# print(mcs_demo_clean_lgbt)
+```
+
+```{r}
+mcs_demo_clean_lgbt <- mcs_demo_clean_lgbt %>%
+  mutate(
+    SGM = case_when(
+      (GCGNID00 >= 3 & GCGNID00 <= 6) |
+      (GCSXAT00 >= 2 & GCSXAT00 <= 5) | validation == 1 ~ 1,
+      (GCGNID00 >= 1 & GCGNID00 <= 2) |
+      (GCSXAT00 == 1) ~ 0,
+      TRUE ~ NA_integer_
+    ),
+
+    SM = case_when(
+      GCSXAT00 == 1 ~ 0,
+      GCSXAT00 >= 2 & GCSXAT00 <= 5 ~ 1,
+      TRUE ~ NA_integer_
+    ),
+    GM = case_when(
+      (GCGNID00 >= 3 & GCGNID00 <= 6)|validation == 1 ~ 1,
+      GCGNID00 >= 1 & GCGNID00 <= 2 ~ 0,
+      TRUE ~ NA_integer_
+    )
+  )
+# write.csv here: 
+```
+
+
+
+
+```{r}
+
+library(nbpMatching)
+
+#### split the data ####
+
+cov = c("cmid", "sex", "age_at_screen", "eth_grp","region")
+
+df_rw = mcs_demo_clean[mcs_demo_clean$eth_grp == 1, cov] 
+df_rb = mcs_demo_clean[mcs_demo_clean$eth_grp == 2, cov] 
+df_ra = mcs_demo_clean[mcs_demo_clean$eth_grp == 3, cov]
+df_r_nb_nw_na <- mcs_demo_clean[!(mcs_demo_clean$eth_grp %in% c(1, 2,3)), c("eth_grp", cov)]
+
+
+```
+
+
+```{r}
+
+set.seed(131)
+# create distances
+df.dist1 <- gendistance(df_rw, idcol="cmid")
+df.dist2 <- gendistance(df_rb, idcol="cmid")
+df.dist3 <- gendistance(df_ra, idcol="cmid")
+df.dist4 <- gendistance(df_r_nb_nw_na, idcol="cmid")
+
+# create distancematrix object
+df.mdm1 <- distancematrix(df.dist1)
+df.mdm2 <- distancematrix(df.dist2)
+df.mdm3 <- distancematrix(df.dist3)
+df.mdm4 <- distancematrix(df.dist4)
+# create matches
+df.match1 <- nonbimatch(df.mdm1)
+df.match2 <- nonbimatch(df.mdm2)
+df.match3 <- nonbimatch(df.mdm3)
+df.match4 <- nonbimatch(df.mdm4)
+```
+```{r}
+# review quality of matches
+df.qom1 <- qom(df.dist1$cov, df.match1$matches)
+df.qom2 <- qom(df.dist2$cov, df.match2$matches)
+df.qom3 <- qom(df.dist3$cov, df.match3$matches)
+df.qom4 <- qom(df.dist4$cov, df.match4$matches)
+```
+
+
+```{r}
+group1 = c(df.match1$halves$Group1.ID, df.match2$halves$Group1.ID, df.match3$halves$Group1.ID, df.match4$halves$Group1.ID)
+group2 = c(df.match1$halves$Group2.ID, df.match2$halves$Group2.ID, df.match3$halves$Group2.ID,df.match4$halves$Group2.ID)
+```
+
+```{r}
+mcs_demo_clean <- mcs_demo_clean %>% 
+  mutate(group = case_when(
+    cmid %in% group1 ~ 1,
+    cmid %in% group2 ~ 2
+  ) 
+)
+mcs_demo_clean_lgbt <- mcs_demo_clean_lgbt %>% 
+  mutate(group = case_when(
+    cmid %in% group1 ~ 1,
+    cmid %in% group2 ~ 2
+  ) 
+)
+```
+```{r}
+library(tableone)
+
+category_f = c( "sex", "eth_grp","region", "sa") 
+tab <- CreateTableOne(vars = c(category_f, "age_at_screen"), data = mcs_demo_clean, factorVars = category_f , strata = "group", addOverall = T)
+table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
+table1
+```
+
+
+```{r}
+category_f = c( "sex", "eth_grp","region", "sa") 
+tab <- CreateTableOne(vars = c(category_f, "age_at_screen"), data = mcs_demo_clean, factorVars = category_f , strata = "sa", addOverall = T)
+table2 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
+table2
+
+```
+```{r}
+category_f_lgbt = c( "sex", "eth_grp","region", "sa","SGM","SM","GM") 
+tab <- CreateTableOne(vars = c(category_f_lgbt, "age_at_screen"), data = mcs_demo_clean_lgbt, factorVars = category_f_lgbt , strata = "group", addOverall = T)
+
+
+table3 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
+table3
+
+tab <- CreateTableOne(vars = c(category_f_lgbt, "age_at_screen"), data = mcs_demo_clean_lgbt, factorVars = category_f_lgbt , strata = "sa", addOverall = T)
+table4 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
+table4
+```
+# Training sample
+```{r}
+
+# create training subsample
+
+train <- mcs_exp_clean[mcs_exp_clean$cmid %in% mcs_demo_clean$cmid[mcs_demo_clean$group == 1], ]
+```
+
+
+
+```{r}
+ordered_factor_cols <- sapply(train, function(x) is.ordered(x) && is.factor(x))
+train[ordered_factor_cols] <- lapply(train[ordered_factor_cols], as.integer)
+
+train_high_response <- remove_cols_with_na(train) # N = 1250 (-2 ID 1248 vars)
+
+cols_range = sapply(train_high_response[,grep("MCSID|cmid", colnames(train_high_response), invert = T)], range, na.rm = T)
+cols_to_check_outliers = names(which(cols_range[2,]-cols_range[1,] >= 6)) 
+train_no_outliers<- train_high_response
+train_no_outliers[, cols_to_check_outliers] = psych::winsor(train_no_outliers[, cols_to_check_outliers],trim=0.005)
+
+
+train_high_signal <- remove_low_signal_cols(train_no_outliers) # N = 891 (-2 ID 889 vars)
+```
+
+
+
+
+
+```{r}
+library(qgraph)
+corr_data = train_high_signal[,3:891]
+
+corrs = qgraph::cor_auto(corr_data)
+saveRDS(corrs, file = "/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/train_high_sig_corr_NOV2023.rds")
+```
+```{r}
+corr_featuers = caret::findCorrelation(corrs, cutoff = .9, exact = T, names = T, verbose = T) # N = 267
+```
+```{r}
+corr_data[,corr_featuers] = NULL
+# N = 622
+```
+
+
+```{r}
+exp_range <-  sapply(corr_data, range, na.rm = T)
+
+cols_to_scale <-  names(which(exp_range[2,]-exp_range[1,] > 1)) 
+cols_to_scale_z <-  paste0(cols_to_scale, "_z")
+
+corr_data[,cols_to_scale_z] <-  scale(corr_data[,cols_to_scale])
+corr_data[,cols_to_scale] = NULL
+```
+
+```{r}
+train_scaled <- cbind(MCSID = train$MCSID,cmid = train$cmid, corr_data)
+# 622 variables
+
+write.csv(train_scaled, file = "/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/Suicide-exwas/train_scaled_NOV2023_final.csv")
+```
+
+###############exwas_finalll.Rmd############
+
+
+
+
+```{r}
+# create test sample
+test <-  mcs_exp_clean[mcs_exp_clean$cmid %in% mcs_demo_clean$cmid[mcs_demo_clean$group == 2], ]
+```
+
+```{r}
+cols_range = sapply(test[,grep("MCSID|cmid", colnames(test), invert = T)], range, na.rm = T)
+cols_to_check_outliers = names(which(cols_range[2,]-cols_range[1,] >= 6)) 
+test_no_outliers <- test
+test_no_outliers[, cols_to_check_outliers] = suppressWarnings(psych::winsor(test_no_outliers[, cols_to_check_outliers],trim=0.005))
+
+```
+
+```{r}
+test_for_scale <- 
+  test_no_outliers %>% select_if(function(x) sd(x, na.rm = TRUE) != 0)
+test_for_scale <- cbind(test_no_outliers[,1:2], test_for_scale)
+# N(col)= 1212, 2 IDs, 1210 vars
+```
+
+
+## imputation here
+```{r}
+demo_test <- mcs_demo_clean %>% filter(cmid %in% test$cmid)
+demo_testm <- demo_test[,1:8]
+test_data <- merge(demo_test, test_for_scale, by = c("MCSID","cmid"))
+
+cols_range_test_data = sapply(test_data[,grep("MCSID|cmid", colnames(test_data), invert = T)], range, na.rm = T)
+binary_features <- names(which(cols_range_test_data[2,] - cols_range_test_data[1,] == 1))
+test_data[,binary_features] = as.data.frame(lapply(test_data[,binary_features], as.factor))
+```
+
+
+```{r}
+library(doParallel)
+library(missForest)
+
+NPROCS = detectCores()
+
+cl <- makeCluster(NPROCS-1)
+
+registerDoParallel(cl)
+
+set.seed(101)
+
+
+test_imputed_NOV2023 = missForest(test_data[3:1219],  parallelize = 'forests')
+saveRDS(test_imputed_NOV2023, file = "/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/Suicide-exwas_imputation_NOV2023.rds")
+stopCluster(cl)
+```
+
+
+```{r}
+test_imputed_data_NOV2023 <- cbind(test_data$MCSID,test_data$cmid, test_imputed_NOV2023$ximp)
+
+```
+
+```{r}
+names(test_imputed_data_NOV2023)[1:2] <- c("MCSID","cmid")
+test_imputed_data_NOV2023[,binary_features] = as.data.frame(lapply(test_imputed_data_NOV2023[,binary_features], \(x) as.numeric(as.character(x))))
+
+```
+
+
+
+
+```{r}
+scale_features = function(df){
+  
+  range = sapply(df[,9:1128], range, na.rm = T)
+  cols_to_scale = names(which(range[2,]-range[1,] > 1)) # 1 = binary, <1 = already scaled 
+  cols_to_scale_z = paste0(cols_to_scale, "_z")
+  df[,cols_to_scale_z] = scale(df[,cols_to_scale])
+  df[,cols_to_scale] = NULL
+  return(df)
+  
+}
+
+test_imputed_scaled <- scale_features(test_imputed_data_NOV2023)
+# write.csv here: test_imputed_scaled_data.csv
+```
+
+######## ESS_final.Rmd ########

@@ -1,0 +1,1198 @@
+---
+title: "Suicide Exposome"
+author: "Yira Zhang"
+date: "2023-03-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(tidyverse)
+library(readr)
+## Demographic
+
+# MCSID, sex, age at interview*, ethnicity 
+
+
+mcs7_cm_interview <- read_delim("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data/UKDA-8682-tab/tab/mcs7_cm_interview.tab")
+```
+
+
+
+```{r}
+mcs_suicide <- mcs7_cm_interview[,c(1,2,255)]
+mcs_suicide$GCSUIC00[mcs_suicide$GCSUIC00 %in% c(3,4,5,-1)] <- NA
+mcs_suicide$cmid <- paste(mcs_suicide$MCSID, mcs_suicide$GCNUM00, sep = "")
+
+mcs_suicide <- mcs_suicide[!is.na(mcs_suicide[["GCSUIC00"]]), ]
+```
+
+```{r}
+mcs1_hhgrid <- read_delim("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data/UKDA-4683-tab/tab/mcs1_hhgrid.tab")
+mcs1_cm_hhgrid <- mcs1_hhgrid %>% filter(ACNUM00 %in% c(1,2))
+mcs1_cm_hhgrid$cmid <- paste(mcs1_cm_hhgrid$MCSID, mcs1_cm_hhgrid$ACNUM00, sep = "")
+
+```
+
+```{r}
+mcs3_cm_derived<-  read_delim("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data/UKDA-5795-tab/tab/mcs3_cm_derived.tab")
+mcs3_cm_derived$cmid <- paste(mcs3_cm_derived$MCSID, mcs3_cm_derived$CCNUM00, sep = "")
+```
+```{r}
+mcs3_cm_demo <- mcs3_cm_derived[,c("MCSID","cmid","CDC11E00")]
+  
+mcs3_cm_demo$CDC11E00[mcs3_cm_demo$CDC11E00 %in% c(-1,-8,-9)] <- NA
+mcs3_cm_demo$eth_grp <- ifelse(mcs3_cm_demo$CDC11E00 == 1, 1,
+                             ifelse(mcs3_cm_demo$CDC11E00 %in% c(7, 8, 9), 2,
+                            ifelse(mcs3_cm_demo$CDC11E00 %in% c(3,4,5,6,10),3,
+                                   ifelse(mcs3_cm_demo$CDC11E00 == 2,4,
+                                          ifelse(is.na(mcs3_cm_demo$CDC11E00), NA,5)))))
+# Value = 1.0	Label = White  
+#	Value = 7.0	Label = Black Caribbean, Value = 8.0	Label = Black African, Value = 9.0	Label = Other Black    
+# Value = 2.0	Label = Mixed, Value = 3.0	Label = Indian, Value = 4.0	Label = Pakistani, Value = 5.0	Label = Bangladeshi, Value = 6.0	Label = Other Asian, Value = 10.0	Label = Chinese, Value = 11.0	Label = Other Ethnic Group 
+# https://www.ethnicity-facts-figures.service.gov.uk/style-guide/ethnic-groups
+# eth_grp: 1 = white; 2= black; 3= Asian; 4= mixed; 5= other ethnic group
+# MCS3 has more ethnic group information, so replaced mcs1
+```
+
+
+```{r}
+mcs1_cm_sex <- mcs1_cm_hhgrid[,c("MCSID","cmid","AHCSEX00")]
+
+mcs1_cm_sex$AHCSEX00[mcs1_cm_sex$AHCSEX00 == -1] <- NA
+```
+
+```{r}
+mcs7_cm_derived <- read_delim("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data/UKDA-8682-tab/tab/mcs7_cm_derived.tab")
+mcs7_cm_derived$cmid <- paste(mcs7_cm_derived$MCSID, mcs7_cm_derived$GCNUM00, sep = "")
+mcs7_cm_demo_cols <- c("MCSID","cmid","GCMCS7AG")
+mcs7_cm_demo <- mcs7_cm_derived[,mcs7_cm_demo_cols]
+mcs7_cm_demo$GCMCS7AG[mcs7_cm_demo$GCMCS7AG == -1] <- NA
+
+mcs7_hhgrid <- read_delim("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data/UKDA-8682-tab/tab/mcs7_hhgrid.tab")
+
+mcs7_hhgrid <- mcs7_hhgrid %>% filter(GCNUM00 %in% c(1,2))
+mcs7_hhgrid$cmid <- paste(mcs7_hhgrid$MCSID, mcs7_hhgrid$GCNUM00, sep = "")
+mcs7_cm_regn_cols <- c("MCSID","cmid","GAREGN00")
+mcs7_cm_regn <- mcs7_hhgrid[,mcs7_cm_regn_cols]
+mcs7_cm_regn$GAREGN00[mcs7_cm_regn$GAREGN00 == -1] <- NA
+
+```
+
+```{r}
+
+mcs_demo <- merge(merge(mcs3_cm_demo, mcs1_cm_sex, by = c("MCSID","cmid"), all = TRUE),
+                        mcs7_cm_demo, by = c("MCSID","cmid"), all = TRUE)
+mcs_demo <- merge(mcs_demo, mcs7_cm_regn, by = c("MCSID","cmid"), all = TRUE)
+
+mcs_demo_clean <- mcs_demo %>% filter(cmid %in% mcs_suicide$cmid) %>% na.omit
+```
+
+
+```{r}
+mcs_sa <- mcs_suicide[3:4]
+
+mcs_demo_clean <- merge(mcs_demo_clean, mcs_sa, by = "cmid")
+mcs_demo_clean$GCSUIC00 <- ifelse(mcs_demo_clean$GCSUIC00 == 1,1,0)
+
+names(mcs_demo_clean) <- c("cmid","MCSID","ethnicity","eth_grp","sex","age_at_screen","region","sa")
+write.csv(mcs_demo_clean, file = "/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/Suicide-exwas/mcs_demo_clean_final_NOV2023.csv")
+```
+
+
+# MCS1 variable selection
+```{r}
+setwd("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data")
+# MCS1
+mcs1_parent_cm_interview <- read.table("UKDA-4683-tab/tab/mcs1_parent_cm_interview.tab", header = TRUE, sep = "\t")
+mcs1_parent_cm_interview <- mcs1_parent_cm_interview %>% filter(ARESP00 == 1)
+mcs1_parent_cm_interview$cmid <- paste(mcs1_parent_cm_interview$MCSID,mcs1_parent_cm_interview$ACNUM00, sep = "")
+mcs1_parent_interview <- read.table("UKDA-4683-tab/tab/mcs1_parent_interview.tab", header = TRUE, sep = "\t")
+mcs1_parent_interview <- mcs1_parent_interview %>% filter(ARESP00 == 1)
+mcs1_family_derived <- read.table("UKDA-4683-tab/tab/mcs1_family_derived.tab", header = TRUE, sep = "\t")
+mcs1_hhgrid <- read.table("UKDA-4683-tab/tab/mcs1_hhgrid.tab", header = TRUE, sep = "\t")
+mcs1_hhgrid <- mcs1_hhgrid %>% filter(ARESP00 == 1)
+mcs1_cm_derived <- read.table("UKDA-4683-tab/tab/mcs1_cm_derived.tab", header = TRUE, sep = "\t")
+```
+
+```{r}
+
+mcs1_cm_derived$ADBWGT00[mcs1_cm_derived$ADBWGT00 %in% c(-8,-9,-1)] <- NA
+mcs1_cm_derived$ADERLT00[mcs1_cm_derived$ADERLT00 == -888] <- NA
+# transform birth weight to low birth weight indicator (under 2.50kg or not)
+mcs1_cm_derived$low_birth_weight = ifelse(mcs1_cm_derived$ADBWGT00 < 2.50, 1, 0)
+mcs1_cm_derived_exp_cols <- c("MCSID","ACNUM00","low_birth_weight","ADERLT00")
+
+mcs1_cm_derived_exp <- mcs1_cm_derived[,mcs1_cm_derived_exp_cols]
+mcs1_cm_derived_exp$cmid <- paste(mcs1_cm_derived_exp$MCSID, mcs1_cm_derived_exp$ACNUM00, sep = "")
+
+```
+
+```{r}
+# Duration of separation
+var_neg_na <- c("APLOAP00","APAPWK00","APAPMT00","APAGLI00","APALIW00","APALIM00","APAGCH00","APAGDA00","APAGWK00","APAGMT00","ACBFEA00","ACBFED00","ACBFEW00","ACBFEM00","ACAGDM00","ACDMDA00","ACDMWK00","ACDMMT00","ACAGCM00","ACCMDA00","ACCMWK00","ACCMMT00","ACAGOM00","ACOMDA00","ACOMWK00","ACOMMT00","ACAGSF00","ACSFDA00","ACSFWK00","ACSFMT00")
+mcs1_parent_cm_interview <- mcs1_parent_cm_interview %>% dplyr::mutate(across(all_of(var_neg_na), ~ ifelse(. %in% c(-8,-9,-1), NA, .)))
+var_neg_na_parent <- c("APSTHO00","APSTWK00","APSTDA00","APSTHR00","ACBAGE00")
+mcs1_parent_interview <- mcs1_parent_interview %>% dplyr::mutate(across(all_of(var_neg_na_parent), ~ ifelse(. %in% c(-8,-9,-1), NA, .)))
+
+
+# How long stayed in hospital (in hours)
+mcs1_parent_cm_interview$sep_weeks <- 
+  ifelse(mcs1_parent_cm_interview$APLOAP00 == 1, mcs1_parent_cm_interview$APAPWK00,
+         ifelse(mcs1_parent_cm_interview$APLOAP00 == 2, 4* mcs1_parent_cm_interview$APAPMT00, NA)
+         )
+
+# Age baby started to live with you 
+mcs1_parent_cm_interview$live_weeks <- 
+  ifelse(mcs1_parent_cm_interview$APAGLI00 == 1, mcs1_parent_cm_interview$APALIW00,
+         ifelse(mcs1_parent_cm_interview$APAGLI00 == 2, 4* mcs1_parent_cm_interview$APALIM00, NA)
+         )
+
+# Back home from hospital
+mcs1_parent_cm_interview$APAGCH00_days <-  ifelse(mcs1_parent_cm_interview$APAGCH00 == 0, 0, 
+                  ifelse(mcs1_parent_cm_interview$APAGCH00 == 1, mcs1_parent_cm_interview$APAGDA00, 
+                          ifelse(mcs1_parent_cm_interview$APAGCH00 == 2, 7 * mcs1_parent_cm_interview$APAGWK00, 
+                                  ifelse(mcs1_parent_cm_interview$APAGCH00 == 3, 30 * mcs1_parent_cm_interview$APAGMT00, NA)))) 
+
+# Age last had breast milk
+mcs1_parent_cm_interview$bremilk_days <- 
+ifelse(mcs1_parent_cm_interview$ACBFEA00 == 1, 0, 
+ifelse(mcs1_parent_cm_interview$ACBFEA00 == 2, 1, 
+ifelse(mcs1_parent_cm_interview$ACBFEA00 == 3,mcs1_parent_cm_interview$ACBFED00,             ifelse(mcs1_parent_cm_interview$ACBFEA00 == 4, 7* mcs1_parent_cm_interview$ACBFEW00,
+ifelse(mcs1_parent_cm_interview$ACBFEA00 == 5, 30 * mcs1_parent_cm_interview$ACBFEM00,
+ifelse(mcs1_parent_cm_interview$ACBFEA00 == 6, 30 * mcs1_parent_interview$ACBAGE00,NA)
+       )))))
+
+# age first had Formula milk 
+mcs1_parent_cm_interview$formilk_days <-  ifelse(mcs1_parent_cm_interview$ACAGDM00 == 1, 0, 
+ifelse(mcs1_parent_cm_interview$ACAGDM00 == 2,1, 
+ifelse(mcs1_parent_cm_interview$ACAGDM00 == 3,mcs1_parent_cm_interview$ACDMDA00,             ifelse(mcs1_parent_cm_interview$ACAGDM00 == 4, 7* mcs1_parent_cm_interview$ACDMWK00,
+ifelse(mcs1_parent_cm_interview$ACAGDM00 == 5, 30 * mcs1_parent_cm_interview$ACDMMT00, NA)))))
+
+# age first had Cow milk
+
+mcs1_parent_cm_interview$cowmilk_days <-  ifelse(mcs1_parent_cm_interview$ACAGCM00 == 1, 0, 
+ifelse(mcs1_parent_cm_interview$ACAGCM00 == 2,mcs1_parent_cm_interview$ACCMDA00,             ifelse(mcs1_parent_cm_interview$ACAGCM00 == 3, 7* mcs1_parent_cm_interview$ACCMWK00,
+ifelse(mcs1_parent_cm_interview$ACAGCM00 == 4, 30 * mcs1_parent_cm_interview$ACCMMT00, NA))))
+
+# Age first had other milk
+mcs1_parent_cm_interview$othmilk_days <-  ifelse(mcs1_parent_cm_interview$ACAGOM00 == 1, 0, 
+ifelse(mcs1_parent_cm_interview$ACAGOM00 == 2,mcs1_parent_cm_interview$ACOMDA00,             ifelse(mcs1_parent_cm_interview$ACAGOM00 == 3, 7* mcs1_parent_cm_interview$ACOMWK00,
+ifelse(mcs1_parent_cm_interview$ACAGOM00 == 4, 30 * mcs1_parent_cm_interview$ACOMMT00, NA))))
+
+
+# age first had solid food
+mcs1_parent_cm_interview$solfood_days <-  ifelse(mcs1_parent_cm_interview$ACAGSF00 == 1, 0, 
+ifelse(mcs1_parent_cm_interview$ACAGSF00 == 2,mcs1_parent_cm_interview$ACSFDA00,             ifelse(mcs1_parent_cm_interview$ACAGSF00 == 3, 7* mcs1_parent_cm_interview$ACSFWK00,
+ifelse(mcs1_parent_cm_interview$ACAGSF00 == 4, 30 * mcs1_parent_cm_interview$ACSFMT00, NA))))
+
+
+mcs1_parent_interview$inhos_hrs <-  
+ifelse(mcs1_parent_interview$APSTHO00 == 1, 168* mcs1_parent_interview$APSTWK00, 
+ifelse(mcs1_parent_interview$APSTHO00 == 2, 24 * mcs1_parent_interview$APSTDA00,
+ifelse(mcs1_parent_interview$APSTHO00 == 3, mcs1_parent_interview$APSTHR00, NA)))
+```
+
+```{r}
+var_95_other <- c("APPRLM0A","APPRLM0B","APPRLM0C","APPRLM0D","APPRLM0E")
+mcs1_parent_cm_interview[var_95_other][mcs1_parent_cm_interview[var_95_other] == 95] <- 85
+# For birth complications, 85 = Other answer (not codeable 1-7,51-57); 95 = Other complication. Here combine them. 
+mcs1_parent_cm_interview_exp_cols <- c("MCSID","cmid","APNUM00","AELIG00","ARESP00","ACNUM00","APAPBA00","sep_weeks","live_weeks","APPRLM0A","APPRLM0B","APPRLM0C","APPRLM0D","APPRLM0E","APICUN00","APAGCH00_days","ACBFEV00","bremilk_days","formilk_days","cowmilk_days","othmilk_days","solfood_days","ACWALK00","ACBCRY00","ACMACA00","ACMCOC00","ACOTAD00","ACAGOL00","ACCAHR00")
+
+mcs1_parent_cm_interview_exp <- mcs1_parent_cm_interview[, mcs1_parent_cm_interview_exp_cols]
+
+
+
+mcs1_parent_interview_exp_cols <- c("MCSID","APNUM00","AELIG00","ARESP00","APFCIN00","APNREL00","APFADI00","APLIBO00","APLOPA00","APLOPB00","APLOPC00","APLOPD00","APLPEV0A","APLPSY00","APLPSM0A","APLPEY0A","APLPEM0A","APCLPY00","APCLPM00","APCOPAA0","APCOPAB0","APINCHA0","APSEOFA0","APCOMA00","APRECH00","APLOAF00","APNACH00","APOFFE00","APGETU00","APANCA00","APANWK00","APANCL00","APILPR00","APILWM0A","APILWM0B","APILWM0C","APILWM0D","APILWM0E","APILWM0F","APILWM0G","inhos_hrs","APMACT00","ACCPAY00","ACAMPA00","ACCOHR00","APMUAL00","APDAAL00","APTICA00","APPPYM0A","APPPYM0B","APPPYM0C","APPPYM0D","APPPYM0E","APPPYM0F","APPPYM0G","APPPYM0H","APPPYM0I","APPPYM0J","APSUPP0A","APSUPP0B","APSUPP0C","APSUPP0D","APSUPP0E","APEASUA0","APEASUB0","APEASUC0","APEASUD0","APEASUE0","APGEHE00","APLOIL00","APLOLM00","APSMUS0A","APSMUS0B","APSMUS0C","APSMUS0D","APSMMA00","APPIOF00","APSMTY00","APSMEV00","APSMKR00","APALDR00","APUNWK00","APUNDA00","APDROF00","APFORC00","APNGFE00","APCHSU00","APFASU00","APCHFA00","APSIPA00","ADWKST00","APEMSE00","APWKPR00","APFILE00","APLEPA00","APWKSI00","APLOOK00","APFUTR00","APAGST00","APWOPR00","APESEM00","APOTJB00","APNWRK00","APJBSI00","APPLEA00","APLEAP00","APFTPT00","APEMPS00","APFLXW0A","APFLXW0B","APFLXW0C","APFLXW0D","APFLXW0E","APFLXW0F","APFLXB0A","APFLXB0B","APFLXB0C","APFLXB0D","APFLXB0E","APFLXB0F","APTOHR00","APEVEW00","APNGTW00","APWKWE00","APWKAW00","APNETA00","APTAXC0A","APTAXC0B","APTAXC0C","APGROA00","APSEPA00","APREIN00","APOCIN00","APEASE00","APHOWK00","APSTBE00","APSTWM0A","APSTWM0B","APSTWM0C","APSTWM0D","APSTWM0E","APSTWM0F","APSTWM0G","APSTWM0H","APCTXC00","APTCAM00","APCTCA00","APREPA00","APREPM0A","APREPM0B","APREPM0C","APREPM0D","APNILP00","APNICO00","APMOTY00","APMOFL00","APHOMS00","APHOSS00","APHOHW00","APGDAC00","APHEUS0A","APDAMP00","APPHON00","APSAFE0A","APOWNS0A","APCARU00","APCARN00","APHOSA00","APAREA00","APARNN00","APARRU00","APARVD00","APARRC00","APARSR00","APTRAN00","APSHOP00","APARPG00","APPLSA00","APROMA00","APRSMA00","APCHTI00")
+mcs1_parent_interview_exp <- mcs1_parent_interview[,mcs1_parent_interview_exp_cols]
+
+
+mcs1_family_derived_exp_cols <- c("MCSID","AACTRY00","ADHTYS00","ADRELP00","ADMINH00","ADFINH00","ADOTHS00","ADNOCM00","ADTOTS00","ADNSIB00","ADHSIB00","ADSSIB00","ADASIB00","ADFSIB00","ADGPAR00","ADOTHA00","ADNMHD00","ADTOTP00","ADCWRK00","ADHINC00","ADONBE00","ADOEDS00","ADOEDE00","ADOEDP00","ADMCSC00","ADMCEQ00","ADMCPO00","APTPCHCK","APTPDEAD","ADROOW00","ADHLAN00","AOEDEX00","AOECDUK0")
+
+mcs1_family_derived_exp <- mcs1_family_derived[,mcs1_family_derived_exp_cols]
+
+mcs1_hhgrid_exp_cols <- c("MCSID","APNUM00","AELIG00","ARESP00","ACNUM00","AHPAGE00","AHPJOB00","AHPTPC00")
+mcs1_hhgrid_exp <- mcs1_hhgrid[,mcs1_hhgrid_exp_cols] 
+
+
+mcs1_parent_interview_family_history_cols <-
+  c("MCSID","APNUM00","AELIG00","ARESP00","APDEAN00","APTRDE00","APREAD00","APFORM00","APMATH00","APMANA00")
+mcs1_parent_interview_family_history <- mcs1_parent_interview[,mcs1_parent_interview_family_history_cols]
+
+# all contain identifiers
+
+```
+
+
+
+
+# MCS2 variable selection
+```{r}
+setwd("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data")
+mcs2_hhgrid <- read.table("UKDA-5350-tab/tab/mcs2_hhgrid.tab", header = TRUE, sep = "\t")
+mcs2_hhgird <- mcs2_hhgrid %>% filter(BRESP00 == 1)
+mcs2_parent_interview <- read.table("UKDA-5350-tab/tab/mcs2_parent_interview.tab", header = TRUE, sep = "\t")
+mcs2_parent_interview <- mcs2_parent_interview %>% filter(BRESP00 == 1)
+mcs2_parent_cm_interview <- read.table("UKDA-5350-tab/tab/mcs2_parent_cm_interview.tab", header = TRUE, sep = "\t")
+
+mcs2_parent_cm_interview <- mcs2_parent_cm_interview %>% filter(BRESP00 == 1)
+mcs2_parent_cm_interview$cmid <- paste(mcs2_parent_cm_interview$MCSID, mcs2_parent_cm_interview$BCNUM00, sep = "")
+mcs2_cognitive_assessment <- read.table("UKDA-5350-tab/tab/mcs2_cm_cognitive_assessment.tab", header = TRUE, sep = "\t")
+mcs2_family_derived <- read.table("UKDA-5350-tab/tab/mcs2_family_derived.tab", header = TRUE, sep = "\t")
+mcs2_neighbourhood_obs <- read.table("UKDA-5350-tab/tab/mcs2_neighbourhood_observations.tab", header = TRUE, sep = "\t")
+mcs2_cm_derived <- read.table("UKDA-5350-tab/tab/mcs2_cm_derived.tab", header = TRUE, sep = "\t")
+
+```
+```{r}
+mcs2_cognitive_assessment$cmid <- paste(mcs2_cognitive_assessment$MCSID, mcs2_cognitive_assessment$BCNUM00, sep = "")
+mcs2_cm_derived$cmid <- paste(mcs2_cm_derived$MCSID, mcs2_cm_derived$BCNUM00, sep = "")
+```
+
+```{r}
+
+# unit conversion
+
+var_neg1_na <- c("BPLOAP00","BPAPWK00","BPAPMT00")
+mcs2_parent_cm_interview <- mcs2_parent_cm_interview %>% dplyr::mutate(across(all_of(var_neg1_na), ~ ifelse(. == -1, NA,.)))
+mcs2_parent_cm_interview$BPLOAP00_week <- ifelse(mcs2_parent_cm_interview$BPLOAP00 == 1, mcs2_parent_cm_interview$BPAPWK00, ifelse(mcs2_parent_cm_interview$BPLOAP00 == 2, 4*mcs2_parent_cm_interview$BPAPMT00, NA))
+
+
+var_neg1_na_fam <- c("BPAGLI00","BPALIM00","BPALIY00","BPFOLO00","BPFOWK00","BPFOMT00","BPHOHW00","BPHODW00","BPHOMT00")
+mcs2_parent_interview <- mcs2_parent_interview %>% dplyr::mutate(across(all_of(var_neg1_na_fam), ~ ifelse(. == -1, NA,.)))
+mcs2_parent_interview$BPAGLI00_mon <- ifelse(mcs2_parent_interview$BPAGLI00 == 1, mcs2_parent_interview$BPALIM00, ifelse(mcs2_parent_interview$BPAGLI00 == 2, 12*mcs2_parent_interview$BPALIY00, NA))
+mcs2_parent_interview$BPFOLO00_week <- ifelse(mcs2_parent_interview$BPFOLO00 == 1, BPFOLO00$BPFOWK00, ifelse(mcs2_parent_interview$BPFOLO00 == 2, 4*mcs2_parent_interview$BPFOMT00, NA))
+mcs2_parent_interview$Bhomeless_week <- ifelse(mcs2_parent_interview$BPHOHW00 == 1,mcs2_parent_interview$BPHODW00, ifelse(mcs2_parent_interview$BPHOHW00 == 2, 4*mcs2_parent_interview$BPHOMT00, NA))
+```
+
+```{r}
+mcs2_parent_interview_exp_cols <- c("MCSID","BPNUM00","BELIG00","BRESP00","BPFCIN00","BPLIBM00","BPANLI00","BPLIPN00","BPLPSI00","BPAGLI00_mon","BPCOPAA0","BPCOPAB0","BPSEOFA0","BPSEOFB0","BPCOMAA0","BPCOMAB0","BPFOLO00_week","BPRECH00","BPMUAL00","BPDAAL00","BPAGSE00","BPLIAW00","BPTICA00","BPCASC00","BPSEMO00","BPSEFA00","BPPPYK0A","BPPPYK0B","BPPPYK0C","BPPPYK0D","BPPPYK0E","BPPPYK0F","BPPPYK0G","BPFRTI00","BPGEHE00","BPCUPR00","BPSFDA00","BPHEYR00","BPLOIL00","BPLOSA00","BPSMUS0A","BPSMUS0B","BPSMUS0C","BPSMUS0D","BPSMUS0E","BPSMMA00","BPSMEV00","BPSMKR00","BPALDR00","BPLICO00","BPNIPN00","BPOTCH00","BPOTCN00","BPOTMAA0","BPOTMAB0","BPOTMAC0","BPOTMAD0","BPOTMAE0","BPOTMAF0","BPOTMAG0","BPOTMAH0","BPOTMAI0","BPOTMAJ0","BPPARC00","BPDIIG00","BPDISM00","BPDISH00","BPDIBN00","BPDITR00","BPDITE00","BPDIBR00","BPPEFP00","BPRESE00","BPRELS00","BPRELO00","BPRESN00","BPREIS00","BPHARE00","BPFORC00","BPCOLT00","BPCOOK00","BPLKIL00","BPGECA00","BPCHSU00","BPCACR00","BPWKWK00","BPJBAW00","BPLWKY00","BPLWKM00","BPEVRW00","BPJBNS00","BPEMPS00","BPSUPV00","BPSUPN00","BPEMPT00","BPLSTJ00","BPEMPN00","BPEMPM00","BPPSYM00","BPFLXW0A","BPFLXW0B","BPFLXW0C","BPFLXW0D","BPFLXW0E","BPFLXW0F","BPFLXW0G","BPFLXW0H","BPFLXW0I","BPFLXW0J","BPFLXW0K","BPFLXB0A","BPFLXB0B","BPFLXB0C","BPFLXB0D","BPFLXB0E","BPFLXB0F","BPFLXB0G","BPFLXB0I","BPFLXB0J","BPFLXB0K","BPEMPB0A","BPEMPB0B","BPEMPB0C","BPEMPB0D","BPEMPB0E","BPEMPB0F","BPEMPP0A","BPEMPP0B","BPEMPP0C","BPEMPP0D","BPEMPP0E","BPEMPP0F","BPSEEM00","BPWKGE00","BPPSEM00","BPWKHM00","BPWKHR00","BPADHR00","BPNUMH00","BPDAYW00","BPEVEW00","BPNGTW00","BPSATW00","BPSUNW00","BPTRAV00","BPNWRK00","BPLOOK00","BPFUTR00","BPNETA00","BPNETM00","BPGROA00","BPGROM00","BPSEPA00","BPREIN00","BPOCIN00","BPHOWK00","BPEASE00","BPSTBE00","BPSTBM0A","BPSTBM0B","BPSTBM0C","BPSTBM0D","BPSTBM0E","BPSTBM0F","BPSTBM0G","BPSTBM0H","BPSTBM0I","BPSTBM0J","BPSTBM0K","BPSTBM0N","BPSTBM0O","BPSTBM0P","BPSTBM0Q","BPSTBM0R","BPSTBM0S","BPSTBM0T","BPSTBM0U","BPSTBM0V","BPCTCA00","BPCTCM00","BPWTCA00","BPWTCM00","BPCCTA00","BPCCTM00","BPREPA00","BPREPM0A","BPREPM0B","BPREPM0C","BPREPM0D","BPREPM0E","BPREPM0F","BPREPM0G","BPREPM0H","BPREPM0I","BPREPM0J","BPREPM0K","BPREPM0L","BPREPM0N","BPINCO00","BPINCM00","BPSARE00","BPMAFI00","BPSTFV00","BPSTIS00","BPSTHL00","BPSTAW00","BPSTWF00","BPINTR00","BPMOTM00","BPMOFL00","BPOTPL00","BPOTPM00","BPHOMS00","BPHOSS00","Bhomeless_week","BPGDAC00","BPHEUS0A","BPHEUS0B","BPHEUS0C","BPHEUS0D","BPHEUS0E","BPHEUS0F","BPHEUS0G","BPDAMP00","BPPHON00","BPCARU00","BPCARN00","BPPETM0A","BPPETM0B","BPPETM0C","BPPETM0D","BPPETM0E","BPPETM0F","BPPETM0G","BPPECM0A","BPPECM0B","BPPECM0C","BPPECM0D","BPPECM0E","BPPECM0F","BPPECM0G","BPPECM0H","BPPECM0I","BPPECM0J","BPHOSA00","BPAREA00","BPARGD00","BPARAR00","BPHODI00","BPHOTH00","BPHOCA00","BPROMA00","BPRSMA00","BPCHTI00","BPJ38Y00","BPWRKC00","BPMLPL00","BPPARL00","BPNWKP00","BPFSTJ00","BPFSSO00_TR3","BPMATB00","BPEMST00","BPNRAG00","BPNRAE00","BPNREL00","BPFADI00","BPNIBM00","BPLIBO00","BPRELP00","BPLOPA00","BPLOPB00","BPLOPC00","BPLPEV00","BPNPSI00")
+
+mcs2_parent_interview_exp <- mcs2_parent_interview[,mcs2_parent_interview_exp_cols]
+
+
+mcs2_parent_interview_family_history_cols <- c("MCSID","BPNUM00","BELIG00","BRESP00","BPDEAN00","BPTRDE00","BPPHDE00","BPPHHO00","BPPHRF00","BPPHEE00","BPPHWO00","BPPHNE00","BPPESH00","BPDRUG00","BPCAMO00","BPREAD00","BPFORM00","BPMATH00","BPMANA00")
+mcs2_parent_interview_family_history <- mcs2_parent_interview[,mcs2_parent_interview_family_history_cols]
+
+mcs2_parent_cm_interview_exp_cols <- c("MCSID","cmid","BPNUM00","BELIG00","BRESP00","BCNUM00","BPAPSI00","BPLOAP00_week","BPBERE00","BPMERE00","BPTVHO00","BPOFRE00","BPREEL00","BPREOF00","BPTOLI00","BPOFLI00","BPSDPA00","BPALPH00","BPOFAB00","BPNUMB00","BPOFCO00","BPSONG00","BPOFSO00","BPDRAW00","BPPAMA00","BPEATW00","BPYOCH00","BPRULE00","BPENFO00","BPTWSA00","BPTRSA00","BPEATM00","BPPASM00","BPPLAY00","BPBEDR00","BPLOAF00","BPBFMT00","BPBFEA00","BPDRDA00","BPCLDA00","BPLOTO00","BPEVCC00","BPSAMC00","BPSAMO00","BPCLST00","BPLSTC00","BPLSTH00","BPCSTOAA","BPSDLC00","BPSDPB00","BPPIAW00","BPPIST00","BPICUN00")
+mcs2_parent_cm_interview_exp <- mcs2_parent_cm_interview[,mcs2_parent_cm_interview_exp_cols]
+
+mcs2_family_derived_exp_col <- c("MCSID","BACTRY00","BDHTYP00","BDHTYS00","BDMINH00","BDFINH00","BDRELP00","BDCHTY00","BDFACH00","BDCHNF00","BDCHNM00","BDOTHS00","BDNOCM00","BDTOTS00","BDNSIB00","BDHSIB00","BDSSIB00","BDASIB00","BDFSIB00","BDGPAR00","BDOTHA00","BDNUMH00","BDTOTP00","BDCWRK00","BDOEDS00","BDOEDE00","BDOEDP00","BDMCSC00","BDMCEQ00","BDMCPO00","BDMBMI00","BDROOW00","BDHLAN00","BDHINC00","BOEDEX00","BOECDUK0","BDRSMB12")
+mcs2_family_derived_exp <- mcs2_family_derived[,mcs2_family_derived_exp_col]
+
+mcs2_cognitive_assessment_exp_col <- c("MCSID","cmid","BCNUM00","BCENVI00","BCTOYS00","BCRCLE00","BCUNCL00","BCTVNS00","BCSPEA00","BCMCON00","BCANSW00","BCPRAI00","BCKISS00","BCINTI00","BCSCOL00","BCPHYS00","BCSLAP00")
+
+mcs2_cognitive_assessment_exp <- mcs2_cognitive_assessment[,mcs2_cognitive_assessment_exp_col]
+
+mcs2_neighbourhood_obs_exp_col <- c("MCSID","BACTRY00","BNGCND00","BNBSEC00","BNTCLM00","BNVTRF00","BNBOCR00","BNLITR00","BNDFCS00","BNGRFT00","BNVAND00","BNRWDY00","BNSFTY00")
+mcs2_neighbourhood_obs_exp <- mcs2_neighbourhood_obs[,mcs2_neighbourhood_obs_exp_col]
+
+mcs2_hhgrid_exp_col <- c("MCSID","BPNUM00","BELIG00","BRESP00","BCNUM00","BHPAGE00","BHPJOB00","BHPTPC00")
+mcs2_hhgrid_exp <- mcs2_hhgrid[,mcs2_hhgrid_exp_col]
+
+# childpsy = child psychopathology
+mcs2_cm_derived_childpsy_col <- c("MCSID","cmid","BCNUM00","BEMOTION","BCONDUCT","BHYPER","BPEER","BPROSOC","BEBDTOT")
+mcs2_cm_derived_childpsy <- mcs2_cm_derived[,mcs2_cm_derived_childpsy_col]
+```
+
+
+# MCS3 variable selection
+```{r}
+setwd("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data")
+
+mcs3_hhgrid <- read.table("UKDA-5795-tab/tab/mcs3_hhgrid.tab", header = TRUE, sep = "\t")
+mcs3_hhgrid <- mcs3_hhgrid %>% filter(CRESP00 == 1)
+mcs3_parent_interview <- read.table("UKDA-5795-tab/tab/mcs3_parent_interview.tab", header = TRUE, sep = "\t")
+mcs3_parent_interview <- mcs3_parent_interview  %>% filter(CRESP00 == 1)
+mcs3_parent_cm_interview <- read.table("UKDA-5795-tab/tab/mcs3_parent_cm_interview.tab", header = TRUE, sep = "\t")
+mcs3_parent_cm_interview$cmid <- paste(mcs3_parent_cm_interview$MCSID, mcs3_parent_cm_interview$CCNUM00, sep = "")
+mcs3_parent_cm_interview <- mcs3_parent_cm_interview %>% filter(CRESP00 == 1)
+mcs3_parent_derived <- read.table("UKDA-5795-tab/tab/mcs3_parent_derived.tab", header = TRUE, sep = "\t")
+mcs3_parent_derived <- mcs3_parent_derived  %>% filter(CRESP00 == 1)
+mcs3_family_derived <- read.table("UKDA-5795-tab/tab/mcs3_family_derived.tab", header = TRUE, sep = "\t")
+mcs3_oldsiblings <- read.table("UKDA-5795-tab/tab/mcs3_older_siblings_questionnaire.tab", header = TRUE, sep = "\t")
+mcs3_cm_derived <- read.table("UKDA-5795-tab/tab/mcs3_cm_derived.tab", header = TRUE, sep = "\t")
+```
+
+```{r}
+mcs3_cm_derived$cmid <- paste(mcs3_cm_derived$MCSID, mcs3_cm_derived$CCNUM00, sep = "")
+
+# Unit conversion
+# Duration of separation
+var_neg_na <- c("CPHOHW00","CPHMWK00","CPHOMT00")
+mcs3_parent_interview <- mcs3_parent_interview %>% dplyr::mutate(across(all_of(var_neg_na), ~ ifelse(. %in% c(-8,-9,-1), NA, .)))
+
+mcs3_parent_interview$Chomeless_week <- 
+  ifelse(mcs3_parent_interview$CPHOHW00 == 1, mcs3_parent_interview$CPHMWK00,
+         ifelse(mcs3_parent_interview$CPHOHW00 == 2, 4* mcs3_parent_interview$CPHOMT00, NA))
+```
+
+```{r}
+mcs3_parent_cm_interview_exp_col <- c("MCSID","cmid","CPNUM00","CELIG00","CRESP00","CCNUM00","CPSTSC00","CPFTNW00","CPFTST00","CPSCON00","CPSCNO00","CPSCSX00","CPEPRY00","CPEEDA0A","CPEEDA0B","CPEEDA0C","CPEEDA0D","CPEEDA0E","CPEDSYA0","CPEDFTA0","CPEVFTA0","CPEFSYA0","CPFSSY00","CPFSEY00","CPFSMW00","CPDNSY00","CPDNEY00","CPDMNT00","CPDHRS00","CPDBED00","CPBMTN00","CPBHRS00","CPDOTT00","CPOSMW00","CPOSNM00","CPOSHR00","CPDTMW00","CPDTNM00","CPDTHR00","CPDNAF00","CPDMNA00","CPDHRA00","CPADEN00","CPADHH00","CPADUP00","CPALRD00","CPALWH00","CPHLWR00","CPHLWX00","CPHLCO00","CPHLNC00","CPPARC00","CPPARH00","CPEVBC00","CPBCCC00","CPBCND00","CPBCHR00","CPEVAS00","CPASCC00","CPASND00","CPASHR00","CPASSP00","CPCCSZ0A","CPCCSZ0B","CPCCSZ0C","CPCCSZ0D","CPCCSZ0E","CPCCWZ0A","CPCCWZ0B","CPCCWZ0C","CPPLVS0A","CPPLVS0B","CPPLVS0C","CPPLVS0D","CPPLVS0E","CPPLVS0F","CPLIBR00","CPRELI00","CPSEHO00","CPFAPA00","CPTVHO00","CPCOMP00","CPFRTV00","CPBERE00","CPMERE00","CPGRSE00","CPVIRE00","CPVIFR00","CPREOF00","CPSITS00","CPPLMU00","CPPAMA00","CPACTI00","CPGAME00","CPWALK00","CPBEDR00","CPLOOK00","CPBFEA00","CPBFEY00","CPBFEM00","CPBRKN00","CPSCHD00","CPFREM00","CPEVWZ0A","CPEVWZ0B","CPEVWZ0C","CPEVWZ0D","CPSNKZ0A","CPSNKZ0B","CPSNKZ0C","CPSNKZ0D","CPSNKZ0E","CPSNKZ0F","CPSNKZ0G","CPSNKZ0H","CPSNKZ0I","CPSNKZ0J","CPDRKZ0A","CPDRKZ0B","CPDRKZ0C","CPDRKZ0D","CPDRKZ0E","CPDRKZ0F","CPDRKZ0G","CPDRKM00","CPFRTP00","CPDIIG00","CPDISM00","CPDISH00","CPDIBN00","CPDITR00","CPDITE00","CPDIBR00","CPDIRE00","CPPBRE00","CPSLPP00")
+
+
+
+mcs3_parent_cm_interview_exp <- mcs3_parent_cm_interview[,mcs3_parent_cm_interview_exp_col]
+mcs3_parent_cm_interview_exp$CPBRKN00 <- ifelse(mcs3_parent_cm_interview_exp$CPBRKN00 == 8, NA, mcs3_parent_cm_interview_exp$CPBRKN00)
+# breakfast days recoded
+
+
+
+
+
+
+# childmed = child medical status
+mcs3_parent_cm_interview_childmed_col <- c("MCSID","cmid","CPNUM00","CELIG00","CRESP00","CCNUM00","CPCHIN00","CPCGHE00","CPCLSI00","CPCLSMA0","CPCLSMB0","CPCLSMC0","CPCLSL00","CPADMA00")
+mcs3_parent_cm_interview_childmed <- mcs3_parent_cm_interview[,mcs3_parent_cm_interview_childmed_col]
+
+
+mcs3_parent_interview_exp_col <- c("MCSID","CPNUM00","CELIG00","CRESP00","CPFCIN00","CPFCRZ0A","CPFCRZ0B","CPFCRZ0C","CPFCRZ0D","CPFCRZ0E","CPCOPAA0","CPINCHA0","CPSEOFA0","CPSTAYA0","CPCOWHA0","CPCOMAA0","CPCOCOA0","CPPAYKAA","CPPAYKAB","CPPAYKAC","CPPAYKAD","CPPAYKAE","CPPAYKAF","CPPAYKAG","CPPAYKAH","CPPAYKAI","CPPAYKAJ","CPREFAA0","CPCOPAS0","CPINCHS0","CPSEOFS0","CPSTAYS0","CPCOWHS0","CPCOMAS0","CPCOCOS0","CPPAYKSA","CPPAYKSB","CPPAYKSC","CPPAYKSD","CPPAYKSE","CPREFAS0","CPFOMT00","CPRECH00","CPMUAL00","CPDAAL00","CDMJES00","CDMJSF00","CDMJSG00","CDMJSC00","CDDJES00","CDDJSF00","CDDJSG00","CDDJSC00","CPRCPL00","CPRSIN00","CPRELY00","CPRELM00","CPREPY00","CPREPM00","CPRESY00","CPRESM00","CPREEY00","CPREEM00","CPRHIS00","CPRFAMA0","CPRPRYA0","CPRPRMA0","CPGENA00","CPSFPH00","CPSFDA00","CPLOIL00","CPLOLM00","CPSMUS0A","CPSMUS0B","CPSMUS0C","CPSMUS0D","CPSMMA00","CPSMEV00","CPSMKR00","CPALDR00","CPAWPD00","CPLWKY00","CPLWKM00","CPCHJB00","CPCHEM00","CPCONJ00","CPSTJY00","CPSTJM00","CPEMPS00","CPEMPC00","CPEMJT0A","CPEMJT0B","CPEMJT0C","CPEMJT0D","CPEMSE00","CDJBES00","CDJBSF00","CDJBSG00","CDJBSC00","CPJBSY00","CPJBSM00","CPWKHM00","CPWKHR00","CPADHR00","CPNUMU00","CPNUMP00","CPDAYW00","CPEVEW00","CPNGTW00","CPSATW00","CPSUNW00","CPSRTY00","CPSRTM00","CPNWRK00","CPCONU00","CPNSTY00","CPNSTM00","CPNOTW00","CPNOTM00","CPEVRW00","CPLSTJ00","CPGROP00","CPGROA00","CPGROW00","CPNETP00","CPNETA00","CDNETW00","CPTAXC0A","CPTAXC0B","CPTAXC0C","CPPUSL00","CPUSLP00","CPSEPA00","CPSEPX00","CPSEPY00","CPREIN00","CPOCIN00","CPHOWK00","CPEASE00","CPEASX00","CPEASY00","CPSTBE00","CPGROX00","CPGROY00","CPNETX00","CPNETY00","CPUSLX00","CPUSLY00","CPBENXA0","CPBENYA0","CPMAIN00","CPMANA00","CPMANX00","CPMANY00","CPREPA00","CPREPO0A","CPREPO0B","CPREPO0C","CPREPO0D","CPREPO0E","CPREPO0F","CPREPY0A","CPREPZ0A","CPREPZ0B","CPREPZ0C","CPREPZ0D","CPREPZ0E","CPREPZ0F","CPREGA00","CPREGX00","CPREGY00","CPNTCO00","CPNTLP00","CPBABYB0","CPBABMB0","CPPARL00","CPNWKP00","CPMOAD00","CPMOMO00","CPMOTZ00","CPMOFL00","CPROOF00","CPOTPL00","CPOTPM00","CPHOMS00","CPHOSS00","CPHOMP00","Chomeless_week","CPGDAC00","CPHEUS0A","CPHEUS0B","CPHEUS0C","CPHEUS0D","CPHEUS0E","CPPETH0A","CPPETH0B","CPPETH0C","CPPETH0D","CPPETH0E","CPHODI00","CPHOCA00","CPARGD00","CPARPR00","CPARFR00","CPARAR00","CPARRC00","CPARSR00","CPROMA00","CPRSMA00","CPFRTI00","CPCHTI00","CPFORC00","CPPART00","CPFATH00","CPLICO00","CPLIPN00","CPLIRE00","CPNRPP00","CPNRPR00","CPOTWTA0","CPOTSEA0","CPOTSOA0","CPOTLIA0","CPHEYR00")
+
+mcs3_parent_interview_exp <- mcs3_parent_interview[,mcs3_parent_interview_exp_col]
+
+
+
+mcs3_parent_interview_family_history_col <- c("MCSID","CPNUM00","CELIG00","CRESP00","CPSFPE00","CPSFEM00","CPSFEP00","CPDEAN00","CPTRDE00","CPREST00","CPMALA00","CPDRUG00")
+mcs3_parent_interview_family_history <- mcs3_parent_interview[,mcs3_parent_interview_family_history_col]
+
+
+mcs3_cm_derived_childpsy_col <- c("MCSID","cmid","CCNUM00","CEMOTION","CCONDUCT","CHYPER","CPEER","CPROSOC","CEBDTOT","CIMPACT","CEBDDIFF")
+mcs3_cm_derived_childpsy <- mcs3_cm_derived[,mcs3_cm_derived_childpsy_col]
+
+mcs3_family_derived_exp_col <- c("MCSID","CACTRY00","CDHTYP00","CDHTYS00","CDRELP00","CDNATM00","CDNATF00","CDOTHS00","CDNOCM00","CDTOTS00","CDNSIB00","CDHSIB00","CDSSIB00","CDASIB00","CDFSIB00","CDGPAR00","CDOTHA00","CDNUMH00","CDTOTP00","CDCWRK00","CDROOW00","CHINCC00","CHINCS00","CTOTINC0","COEDEX00","COECDUK0","CDRSMB23","CDRSMB13")
+mcs3_family_derived_exp <- mcs3_family_derived[,mcs3_family_derived_exp_col]
+
+mcs3_hhgrid_exp_col <- c("MCSID","CPNUM00","CELIG00","CRESP00","CCNUM00","CHPAGE00","CHPJOB00","CHPTPC00","CHPSTY00","CHPSTM00","CHPDCY00","CHPDCM00","CHPSPY00","CHPSPM00")
+mcs3_hhgrid_exp <- mcs3_hhgrid[,mcs3_hhgrid_exp_col]
+mcs3_oldsiblings_exp_col <- c("MCSID","CACTRY00","COPNUM00","COPSEX00","COPAGE00","COSIBY00","COOSSM00","QA1","QA2","QA3","QA4","QA5","QA6","QA7","QA8","QA9","QA10","QA11","QA12","QA13","QA14","QA15","QB1","QB2","QB3","QB4","QB5","QC1","QC2","QC3","QC4","QE3","QE3A","QE4","QE5","QE6","QF1","QF8","QG1","QG2","QG3","QG4","QG5","QG6","QH1","QH2","QH3","QH4","QH5","QH6","QH7","QH8","QH9","QI1","QI2","QI3","QI4")
+mcs3_oldsiblings_exp <- mcs3_oldsiblings[,mcs3_oldsiblings_exp_col]
+
+mcs3_oldsiblings_family_history_col <- c("MCSID","CACTRY00","COPNUM00","COPSEX00","COPAGE00","COSIBY00","QE7","CMOSEMOT","CMOSCOND","CMOSHYPE","CMOSPEER","CMOSPROS","CMOSEBDT")
+mcs3_oldsiblings_family_history <- mcs3_oldsiblings[,mcs3_oldsiblings_family_history_col]
+
+
+mcs3_parent_derived_exp_col <- c("MCSID","CPNUM00","CELIG00","CRESP00","CDDSAM00","CNETINC","CGROSINC","CSEMPINC","COJINC","CBENINC","CSUPINC","COREGINC","CNETINCF","CGROSINCF","CSEMPINCF","COJINCF","CBENINCFT","CCSUPINCF","COREGINCF")
+mcs3_parent_derived_exp <- mcs3_parent_derived[,mcs3_parent_derived_exp_col]
+
+```
+
+
+
+# MCS4 variable selection
+```{r}
+setwd("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data")
+
+mcs4_cm_derived <- read.table("UKDA-6411-tab/tab/mcs4_cm_derived.tab", header = TRUE, sep = "\t")
+
+mcs4_cm_interview <- read.table("UKDA-6411-tab/tab/mcs4_cm_interview.tab", header = TRUE, sep = "\t")
+
+
+mcs4_family_derived <- read.table("UKDA-6411-tab/tab/mcs4_family_derived.tab", header = TRUE, sep = "\t")
+
+
+
+mcs4_hhgrid <- read.table("UKDA-6411-tab/tab/mcs4_hhgrid.tab", header = TRUE, sep = "\t")
+mcs4_hhgrid <- mcs4_hhgrid %>% filter(DRESP00 == 1)
+
+mcs4_parent_cm_interview <- read.table("UKDA-6411-tab/tab/mcs4_parent_cm_interview.tab", header = TRUE, sep = "\t")
+mcs4_parent_cm_interview <- mcs4_parent_cm_interview %>% filter(DRESP00 == 1)
+mcs4_parent_cm_interview$cmid <- paste(mcs4_parent_cm_interview$MCSID,mcs4_parent_cm_interview$DCNUM00, sep = "")
+mcs4_parent_derived <- read.table("UKDA-6411-tab/tab/mcs4_parent_derived.tab", header = TRUE, sep = "\t")
+
+mcs4_parent_interview <- read.table("UKDA-6411-tab/tab/mcs4_parent_interview.tab", header = TRUE, sep = "\t")
+mcs4_parent_interview <- mcs4_parent_interview %>% filter(DRESP00 == 1)
+
+mcs4_teacher_survey <- read.table("UKDA-6411-tab/tab/mcs4_cm_teacher_survey.tab", header = T, sep = "\t")
+```
+
+```{r}
+mcs4_cm_derived$cmid <- paste(mcs4_cm_derived$MCSID, mcs4_cm_derived$DCNUM00, sep = "")
+
+mcs4_cm_interview$cmid <- paste(mcs4_cm_interview$MCSID, mcs4_cm_interview$DCNUM00, sep = "")
+
+mcs4_teacher_survey$cmid <- paste(mcs4_teacher_survey$MCSID, mcs4_teacher_survey$DCNUM00, sep = "")
+```
+
+
+```{r}
+var_neg_na <- c("DPFOLO00","DPFOWK00","DPFOMT00")
+mcs4_parent_interview <- mcs4_parent_interview %>% dplyr::mutate(across(all_of(var_neg_na), ~ ifelse(. %in% c(-8,-9,-1), NA,.)))
+
+mcs4_parent_interview$DPFOLO00_week <- ifelse(mcs4_parent_interview$DPFOLO00 == 1,mcs4_parent_interview$DPFOWK00, ifelse(mcs4_parent_interview$DPFOLO00 == 2, 4*mcs4_parent_interview$DPFOMT00, NA))
+
+mcs4_parent_interview$DPHOHW00[mcs4_parent_interview$DPHOHW00 %in% c(-8,-9,-1,8,9)] <- NA
+mcs4_parent_interview$DPHOKW00[mcs4_parent_interview$DPHOKW00 %in% c(-8,-9,-1,98,99)] <- NA
+mcs4_parent_interview$DPHOMT00[mcs4_parent_interview$DPHOMT00 %in% c(-8,-9,-1,98,99)] <- NA
+
+mcs4_parent_interview$Dhomeless_week <- ifelse(mcs4_parent_interview$DPHOHW00 == 1, mcs4_parent_interview$DPHOKW00, ifelse(mcs4_parent_interview$DPHOHW00 == 2, 4*mcs4_parent_interview$DPHOMT00, NA))
+
+
+```
+
+
+```{r}
+mcs4_cm_derived_childpsy_col <- c("MCSID","cmid","DCNUM00","DDEMOTION","DDCONDUCT","DDHYPER","DDPEER","DDPROSOC","DDDEBDTOT","DDIMPACT","DDDEBDDIFF","DDCSBI00","DDCSBE00","DDCSBC00","DDEMOTI_T","DDCOND_T","DDHYPER_T","DDPEER_T","DDPROSO_T","DDDEBDTO_T","DDDIMPACT_T","DDDEBDIF_T")
+mcs4_cm_derived_childpsy <- mcs4_cm_derived[,mcs4_cm_derived_childpsy_col]
+
+
+mcs4_cm_interview_exp_col <- c("MCSID","cmid","DCNUM00","DCSC0007","DCSC0008","DCSC0009")
+mcs4_cm_interview_exp <- mcs4_cm_interview[,mcs4_cm_interview_exp_col]
+
+
+mcs4_family_derived_exp_col <- c("MCSID","DACTRY00","DDHTYP00","DDHTYS00","DDRELP00","DDTM00","DDTF00","DDMINH00","DDFINH00","DDOTHS00","DDNOCM00","DDTOTS00","DDNSIB00","DDHSIB00","DDSSIB00","DDASIB00","DDFSIB00","DDGPAR00","DDOTHA00","DDNUMH00","DDTOTP00","DDCWRK00","DDOEDS00","DDOEDE00","DDOEDP00","DDMCSC00","DDMCEQ00","DDMCPO00","DDROOW00","DDHINCC0","DDHINCS000","DDTOTINC","DDOEDEX00","DOECDUK0")
+mcs4_family_derived_exp <- mcs4_family_derived[,mcs4_family_derived_exp_col]
+
+mcs4_hhgrid_exp_col <- c("MCSID","DPNUM00","DELIG00","DRESP00","DCNUM00","DHPJOB00","DHPTPC00","DHPSTY00","DHPSTM00")
+mcs4_hhgrid_exp <- mcs4_hhgrid[,mcs4_hhgrid_exp_col]
+
+
+mcs4_parent_cm_interview_childmed_col <- c("MCSID","cmid","DPNUM00","DELIG00","DRESP00","DCNUM00","DPCLSI00","DPCLSI00")
+
+
+mcs4_parent_cm_interview_childmed <- mcs4_parent_cm_interview[,mcs4_parent_cm_interview_childmed_col]
+
+
+mcs4_parent_cm_interview_exp_col <- c("MCSID","cmid","DPNUM00","DELIG00","DRESP00","DCNUM00","DPSAMS00","DPSCNO00","DPSCSX00","DPBULS00","DPINAO0A","DPINAO0B","DPINAO0C","DPINAO0D","DPINAO0E","DPINAO0F","DPINAO0G","DPINAO0H","DPNHWK00","DPTHWK00","DPALRD00","DPALWH00","DPHLWR00","DPHLWX00","DPHLCO00","DPHLNC00","DPPARC00","DPPARH00","DPEVBC00","DPBCCC00","DPBCND00","DPBCHR00","DPBCSP00","DPEVAS00","DPASCC00","DPASND00","DPASHR00","DPASSP00","DPCCSZ0A","DPCCSZ0B","DPCCSZ0C","DPCCSZ0D","DPCCSZ0E","DPCCHAA0","DPCCHAB0","DPCCHAC0","DPCCHAD0","DPCCHAE0","DPCCHAF0","DPCCHAG0","DPCCHAH0","DPCCHAI0","DPCCHAJ0","DPCCHBA0","DPCCHBB0","DPCCHBC0","DPCCHBD0","DPCCHBE0","DPCCHBF0","DPCCHBG0","DPCCHBH0","DPCCHBI0","DPCCHBJ0","DPCCPH00","DPCCHL0A","DPCCHL0B","DPCCHL0C","DPCCHL0D","DPCCHL0E","DPCCHL0F","DPCCHL0G","DPCCHL0H","DPCCHL0I","DPCCHL0J","DPCCHL0K","DPCCHL0L","DPCCHL0M","DPCCHCA0","DPCCHCB0","DPCCHCC0","DPCCHCD0","DPCCHCE0","DPCCHCF0","DPCCHCG0","DPCCHCH0","DPCCHCI0","DPCCHCJ0","DPCCHCK0","DPCCHCL0","DPLIBR00","DPRELI00","DPCLUB00","DPPLFR00","DPFAPA00","DPCMON00","DPCMEX00","DPCMGA00","DPCMGO00","DPOMPH00","DPGRSE00","DPVIFR00","DPREOF00","DPSITS00","DPPLMU00","DPPAMA00","DPACTI00","DPGAME00","DPWALK00","DPBEDR00","DPLOOK00","DPBRKN00","DPEVWZ0A","DPEVWZ0B","DPEVWZ0C","DPEVWZ0D","DPSNKM00","DPFRTP00","DPDIIG00","DPDISM00","DPDISH00","DPDIBN00","DPDITR00","DPDITE00","DPDIBR00","DPDIRE00","DPSCHC00","DPENLI00","DPEXAF00","DPCHIR00","DPCHWL00")
+mcs4_parent_cm_interview_exp <- mcs4_parent_cm_interview[,mcs4_parent_cm_interview_exp_col]
+mcs4_parent_cm_interview_exp$DPPARH00 <- ifelse(mcs4_parent_cm_interview_exp$DPPARH00 %in% c(998,999), NA, mcs4_parent_cm_interview_exp$DPPARH00)
+mcs4_parent_cm_interview_exp$DPBRKN00 <- ifelse(mcs4_parent_cm_interview_exp$DPBRKN00 == 8, NA, mcs4_parent_cm_interview_exp$DPBRKN00)
+
+mcs4_parent_cm_interview_childpsy_col <- c("MCSID","cmid","DPNUM00","DELIG00","DRESP00","DCNUM00","DPNOWH00","DPNOWX00","DPADEN00","DPADHH00","DPADUP00","DPSABS00")
+
+mcs4_parent_cm_interview_childpsy <- mcs4_parent_cm_interview[,mcs4_parent_cm_interview_childpsy_col]
+
+mcs4_parent_derived_exp_col <- c("MCSID","DPNUM00","DELIG00","DRESP00","DDDSAM00","DDNETINC","DDGROSINC","DDSEMPINC","DDOJINC","DDBENINC","DDCSUPINC","DDOREGINC")
+mcs4_parent_derived_exp <- mcs4_parent_derived[,mcs4_parent_derived_exp_col]
+
+
+mcs4_parent_interview_exp_col <- c("MCSID","DPNUM00","DELIG00","DRESP00","DPFCIN00","DPOPNMA0","DPCOPAA0","DPSEOFA0","DPSTAYA0","DPCOWHA0","DPPHOFA0","DPMPOFA0","DPCOMAA0","DPCOCOA0","DPPAYKAA","DPPAYKAB","DPPAYKAC","DPPAYKAD","DPPAYKAE","DPPAYKAF","DPPAYKAG","DPPAYKAH","DPPAYKAI","DPPAYKAJ","DPPAYKAK","DPREFAA0","DPNRQRA0","DPCOPAT0","DPSEOFT0","DPSTAYT0","DPCOWHT0","DPPHOFT0","DPMPOFT0","DPCOMAT0","DPCOCOT0","DPPAYKTA","DPPAYKTB","DPPAYKTC","DPPAYKTD","DPPAYKTE","DPPAYKTF","DPPAYKTG","DPPAYKTH","DPPAYKTI","DPPAYKTJ","DPPAYKTK","DPREFAT0","DPNRQRT0","DPFOLO00_week","DFLPAR000","DFCPAR000","DFRCPL000","DFRSIN000","DPRCPL00","DPRSIN00","DPRELY00","DPRELM00","DPREPY00","DPREPM00","DPRESY00","DPRESM00","DPREEY00","DPREEM00","DPSMUS0A","DPSMUS0B","DPSMUS0C","DPSMUS0D","DPSMUS0E","DPSMMA00","DPSMEV00","DPSMKR00","DPALDR00","DPWKWK00","DPJBAW00","DPLWKY00","DPLWKM00","DPCONJ00","DPSTJY00","DPSTJM00","DPEMPS00","DPEMPC00","DPES2000","DPJBSY00","DPJBSM00","DPWKHR00","DPADHR00","DPNUMU00","DPNUMP00","DPDAYW00","DPEVEW00","DPNGTW00","DPSATW00","DPSUNW00","DPNWRK00","DPCONU00","DPNSTY00","DPNSTM00","DPNOTW00","DPNOTM00","DPGROP00","DPGROA00","DPNETP00","DPNETA00","DPPUSL00","DPREIN00","DPOCIN00","DPHOWK00","DPEASE00","DPSTBE00","DPMOTY00","DPMOFL00","DPROOF00","DPOTPL00","DPOTPM00","DPHOMS00","DPHOSS00","Dhomeless_week","DPGDAC00","DPHEUS0A","DPHEUS0B","DPHEUS0C","DPHEUS0D","DPHEUS0E","DPHEUS0F","DPHEUS0G","DPPETH0A","DPPETH0B","DPPETH0C","DPPETH0D","DPPETH0E","DPPETH0F","DPHODI00","DPARFR00","DPPLOG00","DPROMA00","DPRSMA00","DPCHTI00","DPFORC00","DPPART00","DPFATH00","DPNRPP00","DPNRPR00","DPREAF00")
+mcs4_parent_interview_exp <- mcs4_parent_interview[,mcs4_parent_interview_exp_col]
+
+
+mcs4_teacher_survey_exp_col <- c("MCSID","cmid","DCNUM00","DQ2189","DQ2190","DQ2204","DQ2450","DQ2451","DQ2452","DQ2453","DQ2578","DQ25781","DQ25782","DQ25783","DQ25784","DQ25785","DQ25786")
+mcs4_teacher_survey_exp <- mcs4_teacher_survey[,mcs4_teacher_survey_exp_col]
+
+var_neg91_na <- c("DQ2189","DQ2190","DQ2204","DQ2578","DQ25781","DQ25782","DQ25783","DQ25784","DQ25785","DQ25786")
+mcs4_teacher_survey_exp <- mcs4_teacher_survey_exp %>% dplyr::mutate(across(all_of(var_neg91_na), ~ ifelse(. %in% c(-9,-1), NA,.)))
+var_neg91_dk_na <- c("DQ2450","DQ2451","DQ2452","DQ2453")
+mcs4_teacher_survey_exp <- mcs4_teacher_survey_exp %>% dplyr::mutate(across(all_of(var_neg91_dk_na), ~ ifelse(.%in% c(-9,-1,5), NA,.)))
+# value 5 label cannot say
+# create new dummy variables for 6 = no mother/father figure
+mcs4_teacher_survey_exp$mother_fig <- ifelse(mcs4_teacher_survey_exp$DQ2450 == 6 | mcs4_teacher_survey_exp$DQ2452 == 6, 1, 0)
+mcs4_teacher_survey_exp$father_fig <- ifelse(mcs4_teacher_survey_exp$DQ2451 == 6 | mcs4_teacher_survey_exp$DQ2453 == 6, 1, 0)
+# Replace 6 with NA in the original variables, so only likert scale values are kept
+mcs4_teacher_survey_exp$DQ2450[mcs4_teacher_survey_exp$DQ2450 == 6] <- NA
+mcs4_teacher_survey_exp$DQ2452[mcs4_teacher_survey_exp$DQ2452 == 6] <- NA
+mcs4_teacher_survey_exp$DQ2451[mcs4_teacher_survey_exp$DQ2451 == 6] <- NA
+mcs4_teacher_survey_exp$DQ2453[mcs4_teacher_survey_exp$DQ2453 == 6] <- NA
+
+
+```
+
+
+# MCS5 variable selection
+```{r}
+setwd("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data")
+
+mcs5_cm_interview <- read.table("UKDA-7464-tab/tab/mcs5_cm_interview.tab", header = TRUE, sep = "\t")
+mcs5_cm_teacher_survey <- read.table("UKDA-7464-tab/tab/mcs5_cm_teacher_survey.tab", header = TRUE, sep = "\t")
+mcs5_family_derived <- read.table("UKDA-7464-tab/tab/mcs5_family_derived.tab", header = TRUE, sep = "\t")
+mcs5_hhgrid <- read.table("UKDA-7464-tab/tab/mcs5_hhgrid.tab", header = TRUE, sep = "\t")
+mcs5_hhgrid <- mcs5_hhgrid %>% filter(ERESP00 == 1)
+mcs5_parent_cm_interview <- read.table("UKDA-7464-tab/tab/mcs5_parent_cm_interview.tab", header = TRUE, sep = "\t")
+mcs5_parent_cm_interview$cmid <- paste(mcs5_parent_cm_interview$MCSID, mcs5_parent_cm_interview$ECNUM00, sep = "")
+mcs5_parent_cm_interview <- mcs5_parent_cm_interview %>% filter(ERESP00 == 1)
+mcs5_parent_derived <- read.table("UKDA-7464-tab/tab/mcs5_parent_derived.tab", header = TRUE, sep = "\t")
+mcs5_parent_interview <- read.table("UKDA-7464-tab/tab/mcs5_parent_interview.tab", header = TRUE, sep = "\t")
+mcs5_parent_interview <- mcs5_parent_interview %>% filter(ERESP00 == 1)
+```
+
+```{r}
+mcs5_cm_interview$cmid <- paste(mcs5_cm_interview$MCSID, mcs5_cm_interview$ECNUM00, sep = "")
+
+mcs5_cm_teacher_survey$cmid <- paste(mcs5_cm_teacher_survey$MCSID, mcs5_cm_teacher_survey$ECNUM00, sep = "")
+```
+
+
+```{r}
+var_neg_na <- c("EPHOHW00","EPHOKW00","EPHOMT00")
+mcs5_parent_interview <- mcs5_parent_interview %>% dplyr::mutate(across(all_of(var_neg_na), ~ ifelse(. %in% c(-8,-9,-1), NA, .)))
+
+mcs5_parent_interview$Ehomeless_week <- ifelse(mcs5_parent_interview$EPHOHW00 == 1, mcs5_parent_interview$EPHOKW00, ifelse(mcs5_parent_interview$EPHOHW00 == 2, 4* mcs5_parent_interview$EPHOMT00, NA))
+```
+
+```{r}
+mcs5_cm_interview_exp_col <- c("MCSID","cmid","ECNUM00","EPSDGF00","EPSDLC00","EPSDPB00","EPDIBN00","EPDITR00","EPDIRE00","ECQ12X00","ECQ13X00","ECQ14X00","ECQ15X00","ECQ23X00","ECQ24X00","ECQ54X00","ECQ56X00","ECQ58X00","ECQ60X00","ECQ20X00","ECQ21X00","ECQ41X00","ECQ42X00","ECQ44X00","ECQ48X00")
+mcs5_cm_interview_exp <- mcs5_cm_interview[,mcs5_cm_interview_exp_col]
+
+mcs5_cm_interview_lifestyle_col <- c("MCSID","cmid","ECNUM00","ECQ01X00","ECQ02X00","ECQ03X00","ECQ04X00","ECQ05X00","ECQ06X00","ECQ07X00","ECQ08X00","ECQ09X00","ECQ16X00","ECQ17X00","ECQ18X00","ECQ19X00")
+mcs5_cm_interview_lifestyle <- mcs5_cm_interview[,mcs5_cm_interview_lifestyle_col]
+
+mcs5_cm_interview_childpsy_col <- c("MCSID","cmid","ECNUM00","EPSDUD00","EPSDFB00")
+mcs5_cm_interview_childpsy <- mcs5_cm_interview[,mcs5_cm_interview_childpsy_col]
+
+mcs5_cm_teacher_survey_exp_col <- c("MCSID","cmid","ECNUM00","TIDISS","OTEACH","EQ5S","EQ15","EQ16","EQ17A","EQ33","EQ36","EQ37","EQ4301","EQ4302","EQ4303","EQ4304","EQ4305","EQ4306","EQ4307","EQ4308","EQ4309","EQ4310","EQ4311","EQ4312","EQ4313","EQ4314","EQ4315","EQ4316","EQ4317","EQ4318","EQ4319")
+mcs5_cm_teacher_survey_exp <- mcs5_cm_teacher_survey[,mcs5_cm_teacher_survey_exp_col]
+
+mcs5_family_derived_exp_col <- c("MCSID","EACTRY00","EHTYP00","EHTYS00","ERELP00","EOTHS00","ENOCM00","ETOTS00","ENSIB00","EHSIB00","ESSIB00","EASIB00","EFSIB00","EGPAR00","EOTHA00","ENUMH00","ETOTP00","ECWRK00","ENATM00","ENATF00","EROOW00","EMINH00","EFINH00","EOEDE000","EOEDP000","EOECDUK0","ETIMA00","EHLAN00")
+mcs5_family_derived_exp <- mcs5_family_derived[,mcs5_family_derived_exp_col]
+# EOECDSC:  S5 DV OECD Equivalised income quintiles - by country EXCLUDED
+
+mcs5_hhgrid_exp_col <- c("MCSID","EPNUM00","EELIG00","ERESP00","ECNUM00","EPAGE0000","EPJOB0000","EPSTY0000","EPSTM0000","EPFUL0000")
+mcs5_hhgrid_exp<- mcs5_hhgrid[,mcs5_hhgrid_exp_col]
+
+mcs5_parent_cm_interview_exp_col <- c("MCSID","cmid","EPNUM00","EELIG00","ERESP00","ECNUM00","EPNOWH00","EPSAMS00","EPSCNO00","EPSTWY00","EPSTWM00","EPSCSX00","EPHLPC00","EPPRVC00","EPEXTW0A","EPEXTW0B","EPEXTW0C","EPEXTW0D","EPEXTW0E","EPEXTW0F","EPEXTW0G","EPEXTU0A","EPEXTU0B","EPEXTU0C","EPEXTU0D","EPEXTU0E","EPEXTU0F","EPTRWO00","EPEVBC00","EPBCND00","EPEVAS00","EPASND00","EPCCSW0A","EPCCSW0B","EPCCSW0C","EPCCSW0D","EPCCSW0E","EPCCSW0F","EPCCSW0G","EPCCSW0H","EPCCHAA0","EPCCHAB0","EPCCHAC0","EPCCHAD0","EPCCHAE0","EPCCHAF0","EPCCHAG0","EPCCHAH0","EPCCHAI0","EPCCWE0A","EPCCWE0B","EPCCWE0C","EPCCWE0D","EPCCWE0E","EPCCWE0F","EPCCWE0G","EPCCWE0H","EPPLWK00","EPACTI00","EPGAME00","EPTAIM00","EPLOOK00","EPSCHD00","EPELFR00","EPVRFD00","EPPLOG00","EPSCTY00","EPFTHS00","EPLNWA00","EPLNSC00","EPLNNI00","EPINEV00","EPINWE0A","EPINWE0B","EPINWE0C","EPINWE0D","EPINWE0E","EPINWE0F","EPINWE0G","EPENEX00","EPHPPY00","EPTUPY00","EPTRSC00","EPTRHO00","EPTRDI00","EPTRTI00","EPMVCK00","EPSSTY00","EPSCS200","EPFTH200","EPFHD200","EPFCHO00","EPREPQ00","EPFCSM00","EPOTNU00","EPTYSC0A","EPTYSC0B","EPTYSC0C","EPTYSC0D","EPTYSC0E","EPTYSC0F","EPTYSC0G","EPTYSC0H","EPTYSC0I","EPTYSC0J","EPHOLS00","EPMUSL00","EPPLWE00","EPTVRM00","EPCMON00","EPCMEX00","EPINLN00","EPBERE00","EPBERT00","EPBERM00","EPFREM00","EPBROW00","EPQTRM00")
+mcs5_parent_cm_interview_exp <- mcs5_parent_cm_interview[,mcs5_parent_cm_interview_exp_col]
+
+
+mcs5_parent_cm_interview_lifestyle_col <- 
+c("MCSID","cmid","EPNUM00","EELIG00","ERESP00","ECNUM00","EPHWKM00","EPMUSC00","EPSEHO00","EPCYCF00","EPCYCT00","EPLCLF00","EPLCLB00","EPLCLP00","EPTVHO00","EPCOMP00","EPINTH0A","EPINTH0B","EPINTH0C","EPINTH0D","EPLIBR00","EPRELI00","EPPLFR00","EPVIFR00","EPINTH0E","EPOMPH00","EPACHM00","EPLKFM00","EPGRSE00","EPBRKN00","EPSWTD00","EPASWD00","EPFRTP00")
+mcs5_parent_cm_interview_lifestyle <- mcs5_parent_cm_interview[,mcs5_parent_cm_interview_lifestyle_col]
+
+mcs5_parent_cm_interview_childmed_col <- c("MCSID","cmid","EPNUM00","EELIG00","ERESP00","ECNUM00","EPCGHE00","EPCLSL00")
+mcs5_parent_cm_interview_childmed <- mcs5_parent_cm_interview[,mcs5_parent_cm_interview_childmed_col]
+
+mcs5_parent_derived_exp_col <- c("MCSID","EPNUM00","EELIG00","ERESP00","EDSAM00","ED17S00","ED13S00","ED07S00","ED05S00","EDWRK00","EDACT00","EDRLG00","EACAQ00","EDEMP00")
+mcs5_parent_derived_exp <- mcs5_parent_derived[,mcs5_parent_derived_exp_col]
+
+
+## create a new variable to distinguish allowance received for children (not exposome) and not(exposome)
+mcs5_parent_interview$fam_allowance <- ifelse(mcs5_parent_interview$EPDLAC00 == 1 & mcs5_parent_interview$EPAAAC00 == 2, 1, ifelse(mcs5_parent_interview$EPDLAC00 %in% c(-8,-9,-1,3,4) | mcs5_parent_interview$EPAAAC00 %in% c(-8,-9,-1,3,4), NA, 0))
+mcs5_parent_interview_exp_col <- c("MCSID","EPNUM00","EELIG00","ERESP00","EPFCIN00","EPCOPAA0","EPCOPAB0","EPSEOFA0","EPSEOFB0","EPSTAYA0","EPSTAYB0","EPCOMAA0","EPCOMAB0","EPPAYKAA","EPPAYKAB","EPPAYKAC","EPPAYKAD","EPPAYKAE","EPPAYKAF","EPPAYKAG","EPPAYKAH","EPPAYKAI","EPPAYKAJ","EPPAYKAK","EPPAYKAL","EPPAYKAM","EPNRQRA0","EPNRQRB0","EPFOMT00","EPRCPL00","EPRSIN00","EPRELY00","EPRELM00","EPREPY00","EPREPM00","EPRESY00","EPRESM00","EPREEY00","EPREEM00","EPRFAMA0","EPRFAMB0","EPRFAMC0","EPRFAMD0","EPRFAME0","EPRFAMF0","EPRFAMG0","EPRFAMH0","EPRFAMI0","EPRFAMJ0","EPRPNAA0","EPRPNAB0","EPRPNAC0","EPRPNAD0","EPRPNAE0","EPRPNAF0","EPRPNAG0","EPRPNAH0","EPRPNAI0","EPRPNAJ0","EPRPNBA0","EPRPNBB0","EPRPNBC0","EPRPNBD0","EPRPNBE0","EPRPNBF0","EPRPNBG0","EPRPNBH0","EPRPNBI0","EPRPNBJ0","EPABSPRN1","EPABSPRN2","EPGENA00","EPLOIL00","EPSMUS0A","EPSMUS0B","EPSMUS0C","EPSMUS0D","EPSMUS0E","EPSMUS0F","EPSMUS0G","EPSMMA00","EPSMEV00","EPSMKR00","EPPHAC00","EPWKWK00","EPJBAW00","EPAWPD00","EPLWKY00","EPLWKM00","EPCHJB00","EPESMI00","EPCHEM00","EPCONJ00","EPSTJY00","EPSTJM00","EPJBSY00","EPJBSM00","EPFLXB0A","EPFLXB0B","EPFLXB0C","EPFLXB0D","EPFLXB0E","EPFLXB0F","EPFLXB0G","EPFLXB0H","EPFLXB0I","EPFLXB0J","EPFLXB0K","EPFLXB0L","EPFLXB0M","EPFLXB0N","EPFLXB0O","EPFLXB0P","EPFLXB0Q","EPWKHM00","EPWKHR00","EPADHR00","EPNUMU00","EPNUMP00","EPEVEW00","EPNGTW00","EPWKEW00","EPTRAV00","EPSRTY00","EPSRTM00","EPNWRK00","EPCONU00","EPGROA00","EPGROP00","EPGROW00","EPNETA00","EPNETP00","EPNETW00","EPPUSL00","EPUSLA00","EPUSLP00","EPUSLW00","EPSEPA00","EPREIN00","EPHOSJ00","EPSJUA00","EPSJUP00","EPSJUW00","EPOCIN00","EPHOWK00","EPEASE00","EPPUSA00","EPBENT0A","EPBENT0B","EPBENT0C","EPBENT0D","EPBENT0E","EPBENT0F","EPBENT0G","EPBENT0H","EPBENT0I","fam_allowance","EPINVT00","EPMOAD00","EPMOMO00","EPMOTY00","EPMOFL00","EPROOF00","EPOTPL00","EPOTPM00","EPHOMS00","EPHOSS00","EPSTWH0A","EPSTWH0B","EPSTWH0C","EPSTWH0D","EPSTWH0E","EPSTWH0F","EPSTWH0G","EPSTWH0H","Ehomeless_week","EPGDAC00","EPDAMP00","EPPETH0A","EPPETH0B","EPPETH0C","EPPETH0D","EPPETH0E","EPARFR00","EPRDPL00","EPBKHM00","EPCHTI00","EPREAF00","EPALDR00","EPFORC00","EPPART00","EPLANH00","EPHLAN00","EPPAYKBA","EPPAYKBB","EPPAYKBC","EPPAYKBD","EPPAYKBE","EPPAYKBF","EPPAYKBG","EPPAYKBH","EPPAYKBI","EPPAYKBJ","EPPAYKBK","EPPAYKBL","EPPAYKBM","EPRECH00","EPMUAL00","EPMUAG00","EPMUOL00","EPDAAL00","EPDAAG00","EPDAOL00","EPPASD00","EPAGSE00","EPLIAW00","EPTICA00","EPCASC00","EPREBO00","EPREWN00","EPAWWY00","EPEMPS00","EPEMPC00","EPEMSE00","EPSUPV00","EPSUPN00","EPEMPT00","EPEMPN00","EPSEEM00","EPLOKO00","EPESMG00","EPWMBA00","EPSIBE0A","EPSIBE0B","EPSIBE0C","EPSIBE0D","EPSIBE0E","EPSIBE0F","EPSIBE0G","EPSIBE0H","EPSIBE0I","EPSIBE0J","EPSIBE0K","EPSIBE0L","EPSIBE0M","EPSIBE0N","EPSIBZ0A","EPSIBZ0B","EPSIBZ0C","EPSIBZ0D","EPSIBZ0E","EPSIBZ0F","EPSIBZ0G","EPSIBZ0H","EPSIBZ0I","EPSIBZ0J","EPSIBZ0K","EPSIBZ0L","EPSIBZ0M","EPSIBZ0N","EPSIBZ0O","EPRENT00","EPREPE00","EPREHB00","EPREGR00","EPHVAL00","EPHAXA00","EPHAXB00","EPMOPA00","EPHAX200","EPMMOP00","EPHOTH00","EPCARU00","EPARGD00","EPVOTE00","EPRELE00","EPRELW00","EPRELS00","EPRELN00","EPREIZ00_R20","EPATQL00","EPAUND00","EPATFT00","EPATGF00","EPATST00","EPATDL00")
+mcs5_parent_interview_exp <- mcs5_parent_interview[,mcs5_parent_interview_exp_col]
+howwrong_4_na <- c("EPATFT00","EPATGF00","EPATST00","EPATDL00")
+mcs5_parent_interview_exp <- mcs5_parent_interview_exp %>% dplyr::mutate(across(all_of(howwrong_4_na), ~ ifelse(. %in% c(-8,-9,-1,4), NA,.)))
+# newly added questions regarding how wrong do parents think the child doing ...., 4 = don't know
+
+mcs5_parent_interview_family_history_col <- c("MCSID","EPNUM00","EELIG00","ERESP00","EPDEAN00","EPTRDE00")
+mcs5_parent_interview_family_history <- mcs5_parent_interview[,mcs5_parent_interview_family_history_col]
+```
+
+
+
+# MCS6 variable selection
+```{r}
+setwd("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data")
+mcs6_cm_derived <- read.table("UKDA-8156-tab/tab/mcs6_cm_derived.tab", header = TRUE, sep = "\t")
+mcs6_cm_interview <- read.table("UKDA-8156-tab/tab/mcs6_cm_interview.tab", header = TRUE, sep = "\t")
+mcs6_family_derived <- read.table("UKDA-8156-tab/tab/mcs6_family_derived.tab", header = TRUE, sep = "\t")
+mcs6_hhgrid <- read.table("UKDA-8156-tab/tab/mcs6_hhgrid.tab", header = TRUE, sep = "\t")
+mcs6_hhgrid <- mcs6_hhgrid %>% filter(FRESP00 == 1)
+mcs6_parent_cm_interview <- read.table("UKDA-8156-tab/tab/mcs6_parent_cm_interview.tab", header = TRUE, sep = "\t")
+mcs6_parent_cm_interview$cmid <- paste(mcs6_parent_cm_interview$MCSID, mcs6_parent_cm_interview$FCNUM00, sep = "")
+mcs6_parent_cm_interview <- mcs6_parent_cm_interview %>% filter(FRESP00 == 1)
+mcs6_parent_interview <- read.table("UKDA-8156-tab/tab/mcs6_parent_interview.tab", header = TRUE, sep = "\t")
+mcs6_parent_interview <- mcs6_parent_interview %>% filter(FRESP00 == 1)
+```
+
+
+```{r}
+mcs6_cm_derived$cmid <- paste(mcs6_cm_derived$MCSID, mcs6_cm_derived$FCNUM00 , sep = "")
+
+mcs6_cm_interview$cmid <- paste(mcs6_cm_interview$MCSID, mcs6_cm_interview$FCNUM00 , sep = "")
+```
+
+
+```{r}
+var_neg_na <- c("FPFOLO00","FPFOWK00","FPFOMT00","FPHOHW00","FPHOWK00","FPHOMT00")
+mcs6_parent_interview <- mcs6_parent_interview %>% dplyr::mutate(across(all_of(var_neg_na), ~ ifelse(. %in% c(-8.-9,-1), NA, .)))
+
+mcs6_parent_interview$FPFOLO00_week <- ifelse(mcs6_parent_interview$FPFOLO00 == 1, mcs6_parent_interview$FPFOWK00, ifelse(mcs6_parent_interview$FPFOLO00 == 2, 4* mcs6_parent_interview$FPFOMT00, NA))
+
+mcs6_parent_interview$Fhomeless_week <- ifelse(mcs6_parent_interview$FPHOHW00 == 1, mcs6_parent_interview$FPHOWK00, ifelse(mcs6_parent_interview$FPHOHW00 == 2, 4*mcs6_parent_interview$FPHOMT00, NA))
+```
+
+```{r}
+mcs6_cm_derived_childpsy_col<- c("MCSID","cmid","FCNUM00","FEMOTION","FCONDUCT","FHYPER","FPEER","FPROSOC","FEBDTOT")
+mcs6_cm_derived_childpsy <- mcs6_cm_derived[,mcs6_cm_derived_childpsy_col]
+
+mcs6_cm_interview_exp_col <- c("MCSID","cmid","FCNUM00","FCCMEX00","FCINTH00","FCCYCT00","FCSAFD00","FCPLWE00","FCPLWK00","FCWMON0A","FCWMON0B","FCWMON0C","FCWMON0D","FCWMON0E","FCWMON0G","FCWMON0L","FCWMON0M","FCWMON0N","FCWMON0O","FCWMON0P","FCWMON0Q","FCOPWE0A","FCOPWE0B","FCOPWE0C","FCOPWE0D","FCHWKM00","FCHLPC00","FCQTRM00","FCMISO00","FCRLQM00","FCRLQF00","FCQUAM00","FCQUAF00","FCDIST00","FCDISG00","FCDISP00","FCMAAB00","FCCOMO00","FCSEMA00","FCSTMA00","FCPHMA00","FCPAAB00","FCCOFA00","FCSEFA00","FCSTPA00","FCPHPA00","FCGRSE00","FCNUFR00","FCFRSM00","FCFRSS00","FCFRBY00","FCFRGL00","FCFRTH00","FCPEWH00","FCPETR00","FCSMFR00","FCDRFN00","FCDRFR00","FCBULB00","FCHURT00","FCCYBU00","FCVICG00","FCVICA00","FCVICC00","FCVICE00","FCVICF0A","FCSTFR0A","FCBGFR00","FCSAFF00","FCTRSS00","FCNCLS00")
+# added FCSAFF00 SocSupGrid: I have family and friends who help me feel safe, secure and happy.  FCTRSS00: SocSupGrid: There is someone I trust whom I would turn to if I had problems. FCNCLS00: SocSupGrid: There is no one I feel close to.
+
+
+
+
+mcs6_cm_interview_exp <- mcs6_cm_interview[,mcs6_cm_interview_exp_col]
+
+mcs6_cm_interview_lifestyle_col <- c("MCSID","cmid","FCNUM00","FCCINE00","FCSPOR00","FCBAND00","FCRJOY00","FCORGA00","FCMUSM00","FCRLSV00","FCPHEX00","FCTVHO00","FCCOMH00","FCSOME00","FCCYCF00","FCGANG00","FCFRUT00","FCVEGI00","FCBRED00","FCMILK00","FCASWD00","FCSWTD00","FCTKWY00") 
+
+mcs6_cm_interview_lifestyle <- mcs6_cm_interview[,mcs6_cm_interview_lifestyle_col]
+
+
+mcs6_family_derived_exp_col <- c("MCSID","FACTRY00","FDHTYP00","FDHTYS00","FDRELP00","FDNATM00","FDMINH00","FDNATF00","FDFINH00","FDOTHS00","FDNOCM00","FDTOTS00","FDNSIB00","FDHSIB00","FDSSIB00","FDASIB00","FDFSIB00","FDGPAR00","FDOTHA00","FDNUMH00","FDTOTP00","FDROOW00","FDCWRK00","FOEDE000","FOEDP000","FOECDUK0")
+mcs6_family_derived_exp <- mcs6_family_derived[,mcs6_family_derived_exp_col]
+
+mcs6_hhgrid_exp_col <- c("MCSID","FPNUM00","FELIG00","FRESP00","FCNUM00","FHPAGE00","FHPJOB00","FHPSTY00","FHPSTM00","FHPFUL00")
+mcs6_hhgrid_exp <- mcs6_hhgrid[,mcs6_hhgrid_exp_col]
+
+mcs6_parent_cm_interview_exp_col  <- c("MCSID","cmid","FPNUM00","FELIG00","FRESP00","FCNUM00","FPSCSX00","FPSASC00","FPNOTH00","FPTUPY00","FPTAIM00","FPSCHC00","FPQARP00","FPALAC00","FPCHTI00","FPSDPB00")
+mcs6_parent_cm_interview_exp <- mcs6_parent_cm_interview[,mcs6_parent_cm_interview_exp_col]
+
+
+mcs6_parent_cm_interview_lifestyle_col <- c("MCSID","cmid","FPNUM00","FELIG00","FRESP00","FCNUM00","FPACHM00")
+mcs6_parent_cm_interview_lifestyle <- mcs6_parent_cm_interview[,mcs6_parent_cm_interview_lifestyle_col]
+
+mcs6_parent_cm_interview_childmed_col <- c("MCSID","cmid","FPNUM00","FELIG00","FRESP00","FCNUM00","FPCLSL00","FPADMA00")
+mcs6_parent_cm_interview_childmed <- mcs6_parent_cm_interview[,mcs6_parent_cm_interview_childmed_col]
+
+# create variable to distinguish disability allowance received for children from that's not
+mcs6_parent_interview$fam_allowance <- ifelse(mcs6_parent_interview$FPDLAC00 == 1 & mcs6_parent_interview$FPAAAC00 == 2, 1, ifelse(mcs6_parent_interview$FPDLAC00 %in% c(-8,-9,-1) | mcs6_parent_interview$FPAAAC00 %in% c(-8,-9,-1), NA, 0))
+
+mcs6_parent_interview_exp_col <- c("MCSID","FPNUM00","FELIG00","FRESP00","FPPJOB00","FPPSTY00","FPPSTM00","FPPFUL00","FHADSA00","FHADSM00","FHMOYRY0","FHMOYRM0","FHMOURER","FHSSLP00","FPFMAL00","FPFCIN00","FPTWNIAB","FPTWNIBC","FPTWNIAC","FPCOMA00","FPPCPT00","FPCOPA00","FPSEOF00","FPSTAY00","FPCOFF00","FPSEFF00","FPSTAF00","FPFOLO00_week","FPRECH00","FPRCPL00","FPRSIN00","FPRELY00","FPRELM00","FPREPY00","FPREPM00","FPRESY00","FPRESM00","FPREEY00","FPREEM00","FPRFAMA0","FPGENA00","FPLOIL00","FPLOLM00","FPLOLP00","FPSMUS0A","FPSMUS0B","FPSMUS0C","FPSMUS0D","FPSMUS0E","FPSMUS0F","FPSMUS0G","FPSMMA00","FPPHAC00","FPWKWK00","FPJBAW00","FPAWWY00","FPAWPD00","FPLWKY00","FPLWKM00","FPCHJB00","FPCHEM00","FPCONJ00","FPWKHR00","FPADHR00","FPNUMU00","FPNUMP00","FPSRTY00","FPSRTM00","FPNWRK00","FPCONU00","FPLOKO00","FPGROA00","FPGROP00","FPGROW00","FPNETA00","FPNETP00","FPNETW00","FPPUSL00","FPUSLW00","FPSEPA00","FPREIN00","FPHOSJ00","FPSJUA00","FPSJUP00","FPSJUW00","FPOCIN00","FPHOWK01","FPEASE00","FPPUSA00","FPUNCR00","FPUCWH00","FPUCAM00","fam_allowance","FPBECH00","FPTCBECK","FPNTCO00","FPNTLP00","FPSTHL00","FPSTSO00","FPSTSN00","FPSTEL00","FPREST00","FPMANA00","FPJHISCA","FPPSTAA0","FPYSRTA0","FPMSRTA0","FPFTPT00","FPMOAD00","FPMOTY00","FPMOFL00","FPROMA00","FPROOF00","FPRENT00","FPREPE00","FPMOPA00","FPMMOP00","FPOTPL00","FPOTPM00","FPHOMS00","FPHOSS00","FPSTWH0M","Fhomeless_week","FPSAFE00","FPALDR00","FPDRUG00","FPFORC00")
+mcs6_parent_interview_exp <- mcs6_parent_interview[,mcs6_parent_interview_exp_col]
+
+
+mcs6_parent_interview_family_history_col <- c("MCSID","FPNUM00","FELIG00","FRESP00","FPDEAN00","FPTRDE00")
+mcs6_parent_interview_family_history <- mcs6_parent_interview[,mcs6_parent_interview_family_history_col]
+```
+
+
+# MCS7 variable selection
+```{r}
+setwd("/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/MCS_data")
+mcs7_cm_derived <- read.table("UKDA-8682-tab 2/tab/mcs7_cm_derived.tab", header = TRUE, sep = "\t")
+mcs7_family_interview <- read.table("UKDA-8682-tab 2/tab/mcs7_family_interview.tab", header = TRUE, sep = "\t")
+
+mcs7_parent_cm_interview <- read.delim("UKDA-8682-tab 2/tab/mcs7_parent_cm_interview.tab")
+
+mcs7_parent_interview <- read.table("UKDA-8682-tab/tab/mcs7_parent_interview.tab", header = TRUE, sep = "\t")
+mcs7_cm_interview <- read.table("UKDA-8682-tab 2/tab/mcs7_cm_interview.tab", header = TRUE, sep = "\t")
+mcs7_family_derived <- read.table("UKDA-8682-tab 2/tab/mcs7_family_derived.tab", header = TRUE, sep = "\t")
+mcs7_hhgrid <- read.table("UKDA-8682-tab 2/tab/mcs7_hhgrid.tab", header = TRUE, sep = "\t")
+```
+
+```{r}
+mcs7_cm_interview$cmid <- paste(mcs7_cm_interview$MCSID, mcs7_cm_interview$GCNUM00, sep = "")
+
+mcs7_cm_derived$cmid <- paste(mcs7_cm_derived$MCSID, mcs7_cm_derived$GCNUM00, sep = "")
+
+```
+
+
+```{r}
+mcs7_parent_interview_2parent <- mcs7_parent_interview %>%
+  group_by(MCSID) %>%
+  summarise(n = n()) %>%
+  filter(n == 2) # Filter for IDs that appear twice
+
+# Extract rows with IDs that appear twice
+mcs7_parent_interview_2parent_result <- mcs7_parent_interview %>%
+  filter(MCSID %in% mcs7_parent_interview_2parent$MCSID) %>%
+  dplyr::mutate(GParent = rep(1:2, length.out = nrow(.)))
+
+mcs7_parent_interview_1parent <- mcs7_parent_interview %>%
+  group_by(MCSID) %>%
+  summarise(n = n()) %>%
+  filter(n == 1) 
+
+
+mcs7_parent_interview_1parent_result <- mcs7_parent_interview %>%
+  filter(MCSID %in% mcs7_parent_interview_1parent$MCSID) %>%  
+  dplyr::mutate(GParent = 1)
+
+mcs7_parent_interview <- rbind(mcs7_parent_interview_1parent_result, mcs7_parent_interview_2parent_result)
+```
+
+
+```{r}
+mcs7_parent_cm_interview$cmid <- paste(mcs7_parent_cm_interview$MCSID, mcs7_parent_cm_interview$GCNUM00, sep = "")
+
+mcs7_parent_cm_interview_one <- mcs7_parent_cm_interview %>% filter(GCNUM00 == 1)
+mcs7_parent_cm_interview_two <- mcs7_parent_cm_interview %>% filter(GCNUM00 == 2)
+
+mcs7_parent_cm_interview_2parent_one <- mcs7_parent_cm_interview_one %>%
+  group_by(cmid) %>%
+  summarise(n = n()) %>%
+  filter(n == 2) # Filter for IDs that appear twice
+
+# Extract rows with IDs that appear twice
+mcs7_parent_cm_interview_2parent_result_one <- mcs7_parent_cm_interview_one %>%
+  filter(cmid %in% mcs7_parent_cm_interview_2parent_one$cmid) %>%
+  dplyr::mutate(GParent = rep(1:2, length.out = nrow(.)))
+
+mcs7_parent_cm_interview_2parent_two <- mcs7_parent_cm_interview_two %>%
+  group_by(cmid) %>%
+  summarise(n = n()) %>%
+  filter(n == 2) # Filter for IDs that appear twice
+
+# Extract rows with IDs that appear twice
+mcs7_parent_cm_interview_2parent_result_two <- mcs7_parent_cm_interview_two %>%
+  filter(cmid %in% mcs7_parent_cm_interview_2parent_two$cmid) %>%
+  dplyr::mutate(GParent = rep(1:2, length.out = nrow(.)))
+
+mcs7_parent_cm_interview_1parent <- mcs7_parent_cm_interview %>%
+  group_by(cmid) %>%
+  summarise(n = n()) %>%
+  filter(n == 1) 
+
+
+mcs7_parent_cm_interview_1parent_result <- mcs7_parent_cm_interview %>%
+  filter(cmid %in% mcs7_parent_cm_interview_1parent$cmid) %>%  
+  dplyr::mutate(GParent = 1)
+
+
+mcs7_parent_cm_interview_ed <- dplyr::bind_rows(mcs7_parent_cm_interview_2parent_result_one,mcs7_parent_cm_interview_2parent_result_two,mcs7_parent_cm_interview_1parent_result)
+```
+
+```{r} 
+mcs7_cm_interview$GCHOHW00[mcs7_cm_interview$GCHOHW00 %in% c(3,4,5)] <- NA
+mcs7_cm_interview <- mcs7_cm_interview %>% dplyr::mutate(across(c(GCHOWK00,GCHOMT00), ~ ifelse(. %in% c(-8.-9,-1), NA, .)))
+mcs7_cm_interview$GHomeless_week <- ifelse(mcs7_cm_interview$GCHOHW00 == 1, mcs7_cm_interview$GCHOWK00, ifelse(mcs7_cm_interview$GCHOHW00 == 2, 4*mcs7_cm_interview$GCHOMT00, NA))
+```
+
+```{r}
+mcs7_cm_derived_childpsy_col <- c("MCSID","cmid","GCNUM00","GEMOTION_C","GCONDUCT_C","GHYPER_C","GPEER_C","GPROSOC_C","GEBDTOT_C","GEMOTION","GCONDUCT","GHYPER","GPEER","GPROSOC","GEBDTOT")
+mcs7_cm_derived_childpsy <- mcs7_cm_derived[,mcs7_cm_derived_childpsy_col]
+
+mcs7_family_interview_exp_col  <- c("MCSID","GHADSA00","GHADSM00","GHMOYR00","GHMOMN00","GHMOTY00","GHRCPL00","GHRSIN00","GHRELY00","GHRELM00","GHREPY00","GHREPM00","GHRESY00","GHRESM00","GHREEY00","GHREEM00")
+mcs7_family_interview_exp <- mcs7_family_interview[,mcs7_family_interview_exp_col]
+```
+
+
+```{r}
+mcs7_parent_cm_interview_ed <- mcs7_parent_cm_interview_ed %>% filter(GParent == 1)
+mcs7_parent_cm_interview_exp_col <- c("MCSID","cmid","GParent","GPNUM00","GCNUM00","GPCMED00","GPSCHL00","GPTAIM00","GPSCHC00","GPSDSP00","GPSDGF00","GPSDPB00")
+mcs7_parent_cm_interview_exp <- mcs7_parent_cm_interview_ed[,mcs7_parent_cm_interview_exp_col]
+
+mcs7_parent_interview <- mcs7_parent_interview %>% filter(GParent == 1)
+mcs7_parent_interview_exp_col <- c("MCSID","GParent","GPNUM00","GPFCIN00","GPNRPQ00","GPCOMA00","GPREFA00","GPRCPT00","GPGENA00","GPVAPE00","GPCHJB00","GPCONJ00","GPWKHR00","GPADHR00","GPNUMU00","GPNUMP00","GPLOKO00","GPGROP00","GPGROO00","GPGAOBL0","GPGAOBU0","GPGAOBE0","GPGAOBR0","GPNETP00","GPNETO00","GPNAOBL0","GPNAOBU0","GPNAOBE0","GPNAOBR0","GPPUSL00","GPUSLP00","GPUSLO00","GPUSOBL0","GPUSOBU0","GPUSOBE0","GPUSOBR0","GPSEPA1L0","GPSEPA1U0","GPSEPA1E0","GPSEPA1R0","GPREPA00","GPREPB00","GPREPC00","GPREPD00","GPREPE00","GPREPF00","GPREPG00","GPRGBPL0","GPRGBPU0","GPRGBPE0","GPRGBPR0","GPNTCP00","GPNTCQ00","GPNTPP00","GPNTPO00","GPROOW00","GPGROA00","GPNETA00","GPUSLA00","GPSEPA00","GPRGBA00","GPNTCO00","GPNTLP00")
+mcs7_parent_interview_exp <- mcs7_parent_interview[,mcs7_parent_interview_exp_col]
+
+
+mcs7_parent_interview_family_history_col  <- c("MCSID","GParent","GPNUM00","GPTRDE00")
+mcs7_parent_interview_family_history <- mcs7_parent_interview[,mcs7_parent_interview_family_history_col]
+
+
+mcs7_cm_interview_exp_col <- 
+c("MCSID","cmid","GCNUM00","GCHOMS00","GCHOMF00","GCHOSS00","GHomeless_week","GCCASC00","GCHMFM00","GCIFPD00","GCIFWG00","GCIFTA00","GCIFSM00","GCPYPD00","GCGPYP00","GCOCIN00","GCRCSP00","GCRCSF00","GCRSBE00","GCBURS00","GCRGTS00","GCINNV00","GCOSRC00","GCCOMO00","GCSEMA00","GCPHMA00","GCCOFA00","GCSEFA00","GCPHPA00","GCRLQM00","GCRLQF00","GCLWPA00","GCCARE00")
+
+mcs7_cm_interview_exp <- mcs7_cm_interview[,mcs7_cm_interview_exp_col]
+
+mcs7_cm_interview_lifestyle_col <- c("MCSID","cmid","GCNUM00","GCEDUC00","GCEDUT00","GCAPNT00","GCTRIN00","GCGANG00","GCBRKN00","GCFRUT00","GCVEGI00","GCASWD00","GCSWTD00","GCTKWY00")
+mcs7_cm_interview_lifestyle <- mcs7_cm_interview[,mcs7_cm_interview_lifestyle_col]
+
+
+mcs7_cm_interview_childmed_col <- c("MCSID","cmid","GCNUM00","GCDAGE00","GCTRDE00","GCTRDV00","GCCGHE00","GCCLSI00","GCCLSL00","GCCLSP00")
+mcs7_cm_interview_childmed <- mcs7_cm_interview[,mcs7_cm_interview_childmed_col]
+
+mcs7_family_derived_exp_col <- c("MCSID","GDHTYS00","GDRELP00","GDNATM00","GDMINH00","GDNATF00","GDFINH00","GDOTHS00","GDNOCM00","GDTOTS00","GDNSIB00","GDHSIB00","GDSSIB00","GDASIB00","GDFSIB00","GDGPAR00","GDOTHA00","GDNUMH00","GDTOTP00") 
+mcs7_family_derived_exp <- mcs7_family_derived[,mcs7_family_derived_exp_col]
+
+
+mcs7_hhgrid <- mcs7_hhgrid %>% filter(GELIG00 == 1)
+mcs7_hhgrid_exp_col <- c("MCSID","GPNUM00","GCNUM00","GELIG00","GHPSPY00","GHPSPM00","GHPSTY00","GHPSTM00","GHPFUL00","GHPJOB00","GHPRES00")
+mcs7_hhgrid_exp <- mcs7_hhgrid[,mcs7_hhgrid_exp_col]
+mcs7_hhgrid_exp <- mcs7_hhgrid_exp %>% filter(GELIG00 %in% c(1,2))
+
+```
+
+
+
+
+
+
+
+## Functions (NA replacement, response rate control, merge datasets)
+```{r}
+# Function to replace values with NA in a data frame
+replace_na_fam <- function(df) {
+  df[df == -1 | df == -2 | df == -7 | df == -8 | df == -6 | df == -9  | df == 85 | df == 86 | df == 87 | df == 95 | df == 96 ] <- NA
+  return(df)
+}
+
+replace_na <- function(df) {
+  df[df == -1 | df == -8 | df == -9 | df == -7 | df == -6 | df == -3| df == 95 | df == 96] <- NA
+  return(df)
+}
+
+
+```
+
+
+
+
+
+```{r}
+merge_dataframes <- function(df1, df2) {
+  merged_df <- merge(df1, df2, by = c("MCSID", "cmid"), all = TRUE)
+  return(merged_df[!duplicated(merged_df[c("MCSID", "cmid")]), ])
+}
+ 
+
+merge_dataframes_fam <- function(df1, df2) {
+  merged_df <- merge(df1, df2, by = "MCSID", all = TRUE)
+  return(merged_df[!duplicated(merged_df["MCSID"]), ])
+ 
+}
+```
+
+# Organise across sweeps
+## Individual level
+```{r}
+# Now, we have these individual level data.frames (one CM one row): cm_, parent_cm_, cognitive_assessment, teacher_survey_:
+
+mcs_indi_exp_list <- list(mcs1_parent_cm_interview_exp, mcs1_cm_derived_exp,
+mcs2_parent_cm_interview_exp,mcs2_cognitive_assessment_exp,
+mcs3_parent_cm_interview_exp,
+mcs4_parent_cm_interview_exp,mcs4_cm_interview_exp,mcs4_teacher_survey_exp,
+mcs5_parent_cm_interview_exp,mcs5_cm_interview_exp,
+mcs5_cm_teacher_survey_exp,mcs5_cm_interview_lifestyle,mcs5_parent_cm_interview_lifestyle,
+mcs6_parent_cm_interview_exp,mcs6_cm_interview_exp,mcs6_cm_interview_lifestyle,mcs6_parent_cm_interview_lifestyle,
+mcs7_parent_cm_interview_exp,mcs7_cm_interview_exp, mcs7_cm_interview_lifestyle)
+```
+
+```{r}
+
+names(mcs_indi_exp_list) <- c("mcs1_parent_cm_interview_exp","mcs1_cm_derived_exp","
+mcs2_parent_cm_interview_exp","mcs2_cognitive_assessment_exp","mcs3_parent_cm_interview_exp","mcs4_parent_cm_interview_exp","mcs4_cm_interview_exp","mcs4_teacher_survey_exp","mcs5_parent_cm_interview_exp","mcs5_cm_interview_exp","mcs5_cm_teacher_survey_exp","mcs5_cm_interview_lifestyle","mcs5_parent_cm_interview_lifestyle","mcs6_parent_cm_interview_exp","mcs6_cm_interview_exp","mcs6_cm_interview_lifestyle","mcs6_parent_cm_interview_lifestyle","mcs7_parent_cm_interview_exp","mcs7_cm_interview_exp","mcs7_cm_interview_lifestyle")
+
+```
+
+
+```{r}
+mcs_indi_exp <- Reduce(merge_dataframes, mcs_indi_exp_list)
+mcs_indi_exp <- dplyr::select(mcs_indi_exp, -contains("PNUM"), -contains("CNUM"), -contains("ELIG"), -contains("RESP"), -contains("GParent"))
+```
+
+## Manually filter non-usual NA values
+```{r}
+mcs_indi_exp_no_early <- mcs_indi_exp[, !names(mcs_indi_exp) == "ADERLT00"]
+mcs_indi_exp_no_early <- replace_na(mcs_indi_exp_no_early)
+mcs_indi_exp <- data.frame(mcs_indi_exp_no_early,mcs_indi_exp$ADERLT00)
+# ADERLT00 is the days earlier/later than the expected date, so there are negative values indicating #days earlier, which may overlap with the common NA values. Here, we apply common NA filtering function to variables except it.
+```
+```{r}
+
+mcs_indi_exp$BPAPSI00[mcs_indi_exp$BPAPSI00 %in% c(-1,-2)] <- NA
+# -1 = Not applicable; -2 = Not answered
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate_at(vars(c("GCPYPD00","GCGPYP00")), ~ ifelse(. %in% c(16,17), NA, .))
+#  Value = 16.0	Label = Do not know; Value = 17.0	Label = Prefer not to answer
+
+
+
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate_at(vars(c("BCRCLE00","FPALAC00")), ~ ifelse(. == 3, NA, .))
+# BCRCLE00 3 = not observed
+# FPALAC00 3 = don't know/do not wish to answer
+var_4_na <- c("BPSDLC00","BPSDPB00","EPSDGF00","EPSDLC00","ECQ21X00","BPCLDA00", "BPDRDA00","EPSDPB00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_4_na), ~ ifelse(. == 4, NA, .)))
+# BPSDLC00,BPSDPB00 4 = can't say
+# BPCLDA00,BPDRDA00 4 = Don't know
+# EPSDGF00,EPSDLC00,EPSDPB00 4 = don't know/do not wish to answer
+# ECQ21X00 4 = don't know
+
+var_5_na_indi <- c("ECQ58X00","ECQ60X00","FPSCHC00","FPQARP00","FCRLQM00","FCRLQF00","GCHOMF00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_5_na_indi), ~ ifelse(. == 5, NA, .)))
+# ECQ58X00, ECQ60X00 5 = dk
+# FPSCHC00,FPQARP00 5 = dk, do not wish to answer
+# FCRLQM00,FCRLQF00 5 = I don't have a mother/father/i am not in contact with my mother/father; the questions are regarding how close is the child with mother/father; the loss/loss of contact of mother/facther is indicated by other variables
+var_6_na_indi <- c("CPDIIG00","CPDISM00","CPDISH00","CPDIBN00","CPDITR00","CPDITE00","CPDIBR00","CPDIRE00","CPPBRE00","DPDIIG00","DPDISM00","DPDISH00","DPDIBN00","DPDITR00","DPDITE00","DPDIBR00","DPDIRE00","EPDIBN00","EPDITR00","EPDIRE00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_6_na_indi), ~ifelse(. == 6, NA, .)))
+# 6 cant say
+
+
+var_34_na_indi <- c("EPEVBC00","EPEVAS00","EPOMPH00","EPPLOG00","EPENEX00","EPHPPY00","EPTUPY00","EPTRHO00","EPSSTY00","EPSCS200","EPFCHO00","EPREPQ00","EPMUSC00","EPMUSL00","EPCYCT00","EPTVRM00","EPCMON00","EPCMEX00","EPINLN00","EPFCHO00","EPBROW00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_34_na_indi), ~ifelse(. %in% c(3,4), NA, .)))
+# 3 = dk; 4 = refused
+
+var_345_na_indi <- c("GCTRIN00","GCHMFM00","GCIFPD00","GCIFWG00","GCIFTA00","GCIFSM00","GCOCIN00","GCRCSP00","GCRCSF00","GCRSBE00","GCBURS00","GCRGTS00","GCINNV00","GCLWPA00","GCCARE00","GCEDUC00","GCEDUT00","GCAPNT00","GCTRIN00","GCHOMS00","GCHOSS00","GCOSRC00","GCINNV00","EPINEV00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_345_na_indi), ~ifelse(. %in% c(3,4,5), NA, .)))
+
+# 3 = dk; 4 = do not wish to answer; 5 = no answer
+
+var_456_na <- c("GCCASC00","GCCOMO00","GCCOFA00","GCGANG00","GCBRKN00","GCFRUT00","GCVEGI00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_456_na), ~ifelse(. %in% c(4,5,6), NA, .)))
+# 4 = dk; 5 = do not wish to answer; 6 = no answer
+var_56_na <- c("EPHLPC00","EPPRVC00","EPPLWE00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_56_na), ~ifelse(. %in% c(5,6), NA, .)))
+# 5 = dk, 6 = refused
+var_567_na <- c("GPSCHL00","GPSCHC00","GCRLQM00","GCRLQF00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_567_na), ~ifelse(. %in% c(5,6,7), NA, .)))
+
+
+mcs_indi_exp$EPLCLP00[mcs_indi_exp$EPLCLP00 %in% c(6,7)] <- NA
+mcs_indi_exp$EPPLWK00[mcs_indi_exp$EPPLWK00 %in% c(6,7)] <- NA
+var_78_na <- c("EPVIFR00","EPACHM00","EPLKFM00","EPACTI00","EPGAME00","EPTAIM00","EPTRSC00","EPLOOK00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_78_na), ~ifelse(. %in% c(7,8), NA, .)))
+# 7 = dk; 8 = refused
+
+mcs_indi_exp$GPTAIM00[mcs_indi_exp$GPTAIM00 %in% c(7,8,9)] <- NA
+mcs_indi_exp$FPSASC00[mcs_indi_exp$GPTAIM00 == 3] <- NA
+var_89_na <- c("EPLIBR00","EPRELI00","EPPLFR00","EPSWTD00","EPASWD00","EPTRTI00","EPFTH200","EPSEHO00","EPCYCF00","EPTVHO00","EPCOMP00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_89_na), ~ifelse(. %in% c(8,9), NA, .)))
+# 8 = dk; 9 = refused
+
+var_8910_na <- c("GCPHMA00","GCPHPA00","GCASWD00","GCSWTD00","GCTKWY00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(var_8910_na), ~ifelse(. %in% c(8,9,10), NA, .)))
+# 8 = dk; 9 = do not wish to answer; 10 = no answer
+
+
+
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate_at(vars(c("GCSEMA00","GCSEFA00")), ~ifelse(. %in% c(9,10,11), NA, .))
+# 9 = dk; 9 = do not wish to answer; 10 = no answer
+mcs_indi_exp$DPCCPH00[mcs_indi_exp$DPCCPH00 %in% c(998,999)] <- NA
+# 998 = refusal; 999 = dk
+mcs_indi_exp <- mcs_indi_exp %>%
+  dplyr::mutate(EPBRKN00 = ifelse(EPBRKN00 == 8, 0, ifelse(EPBRKN00 %in% c(9, 10), NA, EPBRKN00)))
+# how many days have creakfast: 8 = zero; 9 = dk; 10 = refusal
+
+# EPBRKN00 = Days per week CM eats breakfast , value = 8, none
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(EPFRTP00 = ifelse(EPFRTP00 == 4, 0, ifelse(EPFRTP00 %in% c(5,6), NA, EPFRTP00)))
+# how many portions of fruit? 4 = none; 5 = refused; 6 = dk
+mcs_indi_exp$EPVRFD00[mcs_indi_exp$EPVRFD00 %in% c(4,5)] <- NA
+# 4 = refused; 5 = dk
+mcs_indi_exp$APPRLM0A[mcs_indi_exp$APPRLM0A == 86] <- NA
+# 86 = Irrelevant Answer
+ 
+mcs_indi_exp$CPSNKZ0A[mcs_indi_exp$CPSNKZ0A == 96] <- 0
+mcs_indi_exp$CPSNKZ0A[mcs_indi_exp$CPSNKZ0A == 86] <- NA
+  mcs_indi_exp %>% dplyr::mutate(CPSNKZ0A = ifelse(CPSNKZ0A == 96, 0, ifelse(CPSNKZ0A %in% c(62,63,64,65,66,86,87), NA, .)))
+# CPSNKZ0A what CM eats between meals: 96 = does not eat between meals; 62,63,64,65,66 = spare; 86,87= irrelevant answer, editor cannot deal with
+mcs_indi_exp$CPDRKZ0A[mcs_indi_exp$CPDRKZ0A %in% c(55,56,86,87,54,57,58)] <- NA
+# ibis
+mcs_indi_exp$DPEVWZ0A[mcs_indi_exp$DPEVWZ0A %in% c(55,56,86,87,53,54,57)] <- NA
+#  55,56,53,54,57 = spare; 86 = vague/irrelevant answer; 87 = editor cannot deal with
+mcs_indi_exp$CPPLVS0A[mcs_indi_exp$CPPLVS0A == 96] <- 0
+mcs_indi_exp$CPPLVS0B[mcs_indi_exp$CPPLVS0B == 96] <- 0
+# CPPLVS0A,CPPLVS0B places CM visited in last 12 months: 96 = none of these
+
+mcs_indi_exp$EPSAMS00[mcs_indi_exp$EPSAMS00 %in% c(7,8)] <- NA
+# 7 = dk; 8 = refused
+mcs_indi_exp$FCBULB00[mcs_indi_exp$FCBULB00 == 7] <- 6
+# FCBULB how often brothers or sister hurt or pick on CM: 7 = do not have brothers or sister, in this case is "never". And having (how many) siblings is recorded in another question.
+```
+
+```{r}
+mcs_indi_exp <- mcs_indi_exp %>%
+  dplyr::mutate(
+    E_nofriend = ifelse(ECQ12X00 == 5 & !is.na(ECQ12X00), 1,
+                ifelse(ECQ13X00 == 5 & !is.na(ECQ13X00), 1,
+                ifelse(ECQ14X00 == 4 & !is.na(ECQ14X00), 1,
+                ifelse(ECQ15X00 == 5 & !is.na(ECQ15X00), 1,
+                ifelse(ECQ16X00 == 6 & !is.na(ECQ16X00), 1,
+                ifelse(ECQ17X00 == 6 & !is.na(ECQ17X00), 1,       
+                ifelse(ECQ18X00 == 5 & !is.na(ECQ18X00), 1,
+                ifelse(ECQ19X00 == 6 & !is.na(ECQ19X00), 1,0
+                 )))))))))
+
+# create a new variable for sweep5: "I have no friend."
+ECQ_5_na <- c("ECQ12X00","ECQ13X00","ECQ15X00","ECQ18X00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(ECQ_5_na), ~ifelse(. == 5, NA, .)))
+ECQ_6_na <- c("ECQ16X00","ECQ17X00","ECQ19X00")
+mcs_indi_exp <- mcs_indi_exp %>% dplyr::mutate(across(all_of(ECQ_6_na), ~ifelse(. == 6, NA, .)))
+mcs_indi_exp$ECQ14X00[mcs_indi_exp$ECQ14X00 == 4] <- NA
+# # Then code "I have no friends" to NA.
+
+
+```
+
+```{r}
+mcs_indi_exp <- mcs_indi_exp %>%
+  dplyr::mutate(E_at_secondary = ifelse(EPMVCK00 == 3, 1, ifelse(EPMVCK00 %in% c(1, 2), 0, NA)))
+# EPMVCK00 will CM be miving to secondary school next school year: 3 = already at secondary. So here we create a variable for children already at secondary school; and in the code following 3 will be coded as NA for EPMVCK00.
+```
+
+```{r}
+mcs_indi_exp <- mcs_indi_exp %>%
+  dplyr::mutate(across(ACWALK00, ~ ifelse(. %in% c(1,2),0,ifelse(. ==3, 1, NA))),
+           across(BPBERE00, ~ ifelse(. %in% c(1,2),0,ifelse(. %in% c(3,4), 2, NA))),
+            across(BPCLDA00, ~ ifelse(. %in% c(2,3),1,ifelse(. == 1, 0, NA))),
+            across(BPDRDA00, ~ ifelse(. %in% c(2,3),1,ifelse(. == 1, 0, NA))),
+            across(BPENFO00, ~ ifelse(. %in% c(2,3),1,ifelse(. == 1, 0, NA))),
+            across(BPMERE00, ~ ifelse(. %in% c(1,2),1,ifelse(. %in% c(3,4), 0, NA))),
+            across(BPRULE00, ~ ifelse(. %in% c(2,3),1,ifelse(. == 1, 0, NA))),
+           across(CPBRKN00, ~ ifelse(. == 7,0,ifelse(. %in% c(1,2,3,4,5,6),1,NA))),
+            across(CPGRSE00, ~ ifelse(. %in% c(6,7),6,.)),
+            across(CPVIRE00, ~ ifelse(. %in% c(6,7),6,.)),
+           across(CPSLPP00, ~ ifelse(. %in%c(1,2,3),1,ifelse(. == 4, 0, NA))),
+           across(DPGRSE00, ~ ifelse(. %in% c(6,7),6,.)),
+           across(DPSAMS00, ~ifelse(. %in% c(1,2,3),1,ifelse(. %in% c(4,5),0,NA))),
+           across(EPGRSE00, ~ ifelse(. %in% c(6,7),6,.)),
+           across(FCGRSE00, ~ ifelse(. %in% c(6,7),6,.)),
+           across(ECQ48X00, ~ ifelse(. %in% c(5,6),NA, .)),
+           across(ECQ54X00, ~ ifelse(. == 7,NA, .)),
+           across(EPLKFM00, ~ ifelse(. == 6,0,ifelse(. %in% c(1,2,3,4,5),1,NA))),
+            across(EPSDGF00, ~ ifelse(. == 3,1,ifelse(. %in% c(1,2),0,NA))),
+           across(EPSDLC00, ~ ifelse(. == 3,1,ifelse(. %in% c(1,2),0,NA))),
+            across(FCBAND00, ~ ifelse(. == 6,0,1)),
+           across(FCCYCF00, ~ ifelse(. == 8,NA, .)),
+           across(EPMVCK00, ~ ifelse(. == 3,NA, .)),
+           across(EPSAMS00, ~ ifelse(. %in% c(1,2,3), 0,ifelse(. %in% c(4,5,6),1,NA))),
+           across(GCCASC00, ~ ifelse(. == 1,1, ifelse(. %in% c(2,3), 0, NA))),
+           across(GCCOMO00, ~ ifelse(. == 1,1, ifelse(. %in% c(2,3), 0, NA))),
+         across(GCCOFA00, ~ ifelse(. == 1, 1, ifelse(. %in% c(2,3), 0, NA))),
+         across(GCGANG00, ~ ifelse(. == 1, 1, ifelse(. %in% c(2,3), 0, NA))))
+           
+# this is what we agreed on binarising ordinal variables; alterating the scale for scale variable.
+
+```
+
+
+```{r}
+
+mcs_indi_exp <- mcs_indi_exp %>% filter(cmid %in% mcs_demo_clean$cmid)
+# N = 711 -2 ID columns = 709 (NOV 2023)
+
+```
+
+
+
+
+
+
+
+## Family level 
+```{r}
+# Family level data, one MCSID one row: parent_, family_, sibling_, hhgrid_, neighbourhood
+mcs_family_exp_list <- list(mcs1_family_derived_exp, mcs1_parent_interview_exp, mcs1_hhgrid_exp,
+                            mcs2_family_derived_exp, mcs2_parent_interview_exp, mcs2_neighbourhood_obs_exp,
+                            mcs3_family_derived_exp, mcs3_parent_derived_exp, mcs3_parent_interview_exp,  mcs3_oldsiblings_exp, mcs3_hhgrid_exp,
+                            mcs4_family_derived_exp, mcs4_parent_derived_exp, mcs4_parent_interview_exp, mcs4_hhgrid_exp,
+                            mcs5_family_derived_exp, mcs5_parent_derived_exp, mcs5_parent_interview_exp, mcs5_hhgrid_exp,
+                            mcs6_family_derived_exp, mcs6_parent_interview_exp, mcs6_hhgrid_exp, 
+                            mcs7_family_derived_exp, mcs7_family_interview_exp, mcs7_parent_interview_exp, mcs7_hhgrid_exp)
+```
+
+
+```{r}
+names(mcs_family_exp_list) <- c("mcs1_family_derived_exp"," mcs1_parent_interview_exp","mcs1_hhgrid_exp","mcs2_family_derived_exp","mcs2_parent_interview_exp","mcs2_neighbourhood_obs_exp","mcs3_family_derived_exp","mcs3_parent_derived_exp","mcs3_parent_interview_exp","mcs3_oldsiblings_exp","mcs3_hhgrid_exp","mcs4_family_derived_exp","mcs4_parent_derived_exp","mcs4_parent_interview_exp","mcs4_hhgrid_exp","mcs5_family_derived_exp","mcs5_parent_derived_exp","mcs5_parent_interview_exp","mcs5_hhgrid_exp","mcs6_family_derived_exp","mcs6_parent_interview_exp","mcs6_hhgrid_exp","mcs7_family_derived_exp","mcs7_family_interview_exp","mcs7_parent_interview_exp","mcs7_hhgrid_exp")
+
+mcs_fam_exp <- Reduce(merge_dataframes_fam, mcs_family_exp_list)
+
+
+```
+```{r}
+
+
+mcs_fam_exp <- dplyr::select(mcs_fam_exp, -contains("PNUM"), -contains("CNUM"), -contains("ELIG"),-contains("CTRY"),-contains("RESP"),-contains("GParent"))
+
+mcs_fam_exp <- replace_na_fam(mcs_fam_exp)
+var_3_na <- c("APMUAL00","APDAAL00","BPMUAL00","BPDAAL00","CPMUAL00","CPDAAL00")
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate(across(all_of(var_3_na), ~ ifelse(. == 3, NA, .)))
+# 3 = dk
+
+var_8_na<- c("BNGCND00","BNBSEC00","BNTCLM00","BNVTRF00","BNBOCR00","BNLITR00","BNDFCS00","BNGRFT00","BNVAND00","BNRWDY00","BNSFTY00")
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate(across(all_of(var_8_na), ~ ifelse(. == 8, NA, .))) 
+# 8 = blank
+
+var_5_na <- c("APCHTI00","BPCHTI00","DPREAF00","EPREAF00","EPATQL00")
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate(across(all_of(var_5_na), ~ ifelse(. == 5, NA, .)))
+# APCHTI00,BPCHTI00 5 = not sure
+# DPREAF00 5 = can't say
+# EPREAF00,EPATQL00 5 = dk;don't wish to answer
+
+var_6_na <- c("APNGFE00","APCHSU00","APFASU00","APCHFA00","APSIPA00","DPCHTI00","EPALDR00","FPALDR00")
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate(across(all_of(var_6_na), ~ ifelse(. == 6, NA, .)))
+# APXXXX 6=cant say; 
+# DPCHTI00 6 = not sure
+# EPALDR00 6 = dk/don't wish to answer
+# FPALDR00 6 = dk/don't wish to answer
+
+mcs_fam_exp$GHMOTY00[mcs_fam_exp$GHMOTY00 == 7] <- NA
+# vague irrelevant answer 
+var_3_4_na <- c("EPVOTE00","GHADSA00","EPLOIL00","EPWKWK00","EPOCIN00","EPMUAL00","EPDAAL00")
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate(across(all_of(var_3_4_na), ~ ifelse(. %in% c(3,4), NA, .)))
+# 3 = refused; 4 = dk
+# GHADSA00 3 = dk; 4= prefer not to answer
+
+var_345_na_fam <- c("GPCHJB00","GPCONJ00","GPADHR00","GPPUSL00","GPREPA00","GPREPB00","GPREPC00","GPREPD00","GPREPE00","GPREPF00","GPREPG00","GPNRPQ00")
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate(across(all_of(var_345_na_fam), ~ ifelse(. %in% c(3,4,5), NA, .)))
+# 3 = dk; 4 = do not wish to answer; 5 = no answer
+mcs_fam_exp$FPDRUG00[mcs_fam_exp$FPDRUG00 == 4] <- NA
+# dk/don't whish to answer
+mcs_fam_exp$GPCOMA00[mcs_fam_exp$GPCOMA00 %in% c(4,5,6)] <- NA
+
+
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate_at(vars(c("EPDAMP00","EPARFR00")), ~ ifelse(. %in% c(5,6), NA, .))
+# 5 = refused; 6 = dk
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate_at(vars(c("EPCARU00","GPLOKO00","GPGROP00","GPNETP00","GPUSLP00","GPNTCP00","GPNTPP00")), ~ ifelse(. %in% c(5,6,7), NA, .))
+# 5 = none; 6 = refused; 7= dk
+var_67_na <- c("EPCHTI00","EPHOTH00","EPARGD00")
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate(across(all_of(var_67_na), ~ ifelse(. %in% c(6,7), NA, .)))
+# 6 = refused; 7= dk
+var_678_na <- c("GPREFA00","GPRCPT00","GPGENA00","GPVAPE00")
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate(across(all_of(var_678_na), ~ ifelse(. %in% c(6,7,8), NA, .)))
+
+mcs_fam_exp$EPBKHM00[mcs_fam_exp$EPBKHM00 %in% c(7,8)] <- NA
+mcs_fam_exp$EDRLG00[mcs_fam_exp$EDRLG00 == -1] <- NA
+var_89_na <- c("DPHODI00","DPARFR00","DPPLOG00","EPRDPL00")
+mcs_fam_exp <- mcs_fam_exp %>% dplyr::mutate(across(all_of(var_89_na), ~ ifelse(. %in% c(8,9), NA, .)))
+# 8 = refusal; 9 = dk
+
+mcs_fam_exp$GPROOW00[mcs_fam_exp$GPROOW00 %in% c(11,12,13)] <- NA
+# 11 = dk; 12 = do not wish to answer; 13 = no answer
+mcs_fam_exp$APMACT00[mcs_fam_exp$APMACT00 == 85] <- 6
+mcs_fam_exp$APMACT00[mcs_fam_exp$APMACT00 == 86] <- NA
+mcs_fam_exp$APPPYM0A[mcs_fam_exp$APPPYM0A %in% c(86,95)] <- NA
+mcs_fam_exp$APPPYM0A[mcs_fam_exp$APPPYM0A == 85] <- 54
+# code"other not codeable answer" to a lower value to avoid being filtered out
+mcs_fam_exp$BPALDR00[mcs_fam_exp$BPALDR00 == 8] <- NA
+# 8 refused
+
+mcs_fam_exp$ADHINC00[mcs_fam_exp$ADHINC00 == 97] <- NA
+
+mcs_fam_exp$EPGENA00[mcs_fam_exp$EPGENA00 %in% c(6,7)] <- NA
+mcs_fam_exp$EPPHAC00[mcs_fam_exp$EPPHAC00 %in% c(8,9)] <- NA
+# 6 = refused; 7 = dk
+```
+
+
+```{r}
+
+mcs_fam_exp <-  mcs_fam_exp %>% 
+  dplyr::mutate(
+ADMINH00 = ifelse(ADMINH00 == 1, 0, ifelse(ADMINH00 %in% c(2, 3), 1, NA)),
+ADFINH00 = ifelse(ADFINH00 == 1, 0, ifelse(ADFINH00 %in% c(2, 3), 1, NA)),
+BDMINH00 = ifelse(BDMINH00 == 1, 0, ifelse(BDMINH00 %in% c(2, 3), 1, NA)),
+BDFINH00 = ifelse(BDFINH00 == 1, 0, ifelse(BDFINH00 %in% c(2, 3), 1, NA)),
+BPINTR00 = ifelse(BPINTR00 == 5, 0, ifelse(BPINTR00 %in% c(1,2,3,4), 1, NA)),
+DDMINH00 = ifelse(DDMINH00 == 1, 0, ifelse(DDMINH00 %in% c(2, 3), 1, NA)),
+DDFINH00 = ifelse(DDFINH00 == 1, 0, ifelse(DDFINH00 %in% c(2, 3), 1, NA)),
+EMINH00 = ifelse(EMINH00 == 1, 0, ifelse(EMINH00 %in% c(2, 3), 1, NA)),
+EFINH00 = ifelse(EFINH00 == 1, 0, ifelse(EFINH00 %in% c(2, 3), 1, NA)),
+FDMINH00 = ifelse(FDMINH00 == 1, 0, ifelse(FDMINH00 %in% c(2, 3), 1, NA)),
+FDFINH00 = ifelse(FDFINH00 == 1, 0, ifelse(FDFINH00 %in% c(2, 3), 1, NA)),
+GDNATM00 = ifelse(GDNATM00 == 1, 0, ifelse(GDNATM00 %in% c(2, 3), 1, NA)),
+GDMINH00 = ifelse(GDMINH00 == 1, 0, ifelse(GDMINH00 %in% c(2, 3), 1, NA)),
+FPSTHL00 = ifelse(FPSTHL00 == 1, 0, ifelse(FPSTHL00 %in% c(2, 3), 1, NA)),
+FPSTSO00 = ifelse(FPSTSO00 == 1, 0, ifelse(FPSTSO00 %in% c(2, 3), 1, NA)),
+FPSTSN00 = ifelse(FPSTSN00 == 1, 0, ifelse(FPSTSN00 %in% c(2, 3), 1, NA)),
+FPSTEL00 = ifelse(FPSTEL00 == 1, 0, ifelse(FPSTEL00 %in% c(2, 3), 1, NA))
+)
+```
+
+
+
+
+```{r}
+mcs_fam_exp <- mcs_fam_exp %>% filter(MCSID %in% mcs_demo_clean$MCSID)
+# N = 1600 - 1 ID column = 1599
+```
+
+
+
+```{r}
+# stage 1, before dummy, binarisation, and filtering.
+exp_indi_fam_merge <-  merge(mcs_indi_exp, mcs_fam_exp, by = "MCSID", all.x = TRUE, all.y = FALSE)
+  
+```
+
+
+
+## Recode variables, binarisation, create dummy variable
+```{r}
+library(fastDummies)
+mcs_exp_dummy <-  dummy_cols(
+exp_indi_fam_merge, select_columns =  c("APPRLM0A","ACBCRY00","CPFTST00","CPEEDA0A","CPPLVS0A","CPPLVS0B","CPEVWZ0A","CPDRKZ0A","DPEVWZ0A","EPTRWO00","EPTRSC00","ECQ14X00","FCBRED00","FCMILK00","EPFTH200","ADCWRK00","ADROOW00","APFCIN00","APPPYM0A","APSUPP0A","ADWKST00","APEMSE00","APSTWM0A","APMOTY00","APHEUS0A","BPFSSO00_TR3","BDHTYP00","BDCHTY00","BDFACH00","BDCHNF00","BDCHNM00","BDCWRK00","BDROOW00","CDHTYP00","CDNATM00","CDNATF00","CDROOW00","CPFCIN00","CPARFR00","DDHTYP00","DDTM00","DDTF00","DDCWRK00","DDROOW00","DPFCIN00","DPSMUS0A","DPSMUS0B","DPSMUS0C","DPSMUS0D","DPSMUS0E","DPARFR00","EHTYP00","ECWRK00","ENATM00","ENATF00","EROOW00","EDACT00","EPFCIN00","EPARFR00","FDHTYP00","FDNATM00","FDNATF00","FDROOW00","FDCWRK00","FPFCIN00","GHMOTY00","EPFCSM00","GPGROP00","GPNETP00","GPUSLP00","GPNTCP00","GPNTPP00","GPLOKO00","GCPYPD00","GCGPYP00","CPSNKZ0A","APMACT00","APSMUS0A","APSMUS0B","APSMUS0C","APSMUS0D", "CPSMUS0A","CPSMUS0B","CPSMUS0C","CPSMUS0D","EDRLG00","CPHEUS0A","CPHEUS0B","CPHEUS0C","CPHEUS0D","CPHEUS0E","CPFTNW00", "DPHEUS0A","DPHEUS0B","DPHEUS0C","DPHEUS0D","DPHEUS0E","DPHEUS0F","DPHEUS0G","EPLCLF00","EPLCLB00","EPLCLP00","GCHOMF00"), remove_first_dummy = FALSE, ignore_na = TRUE,
+remove_selected_columns = TRUE)
+
+mcs_exp_dummy <- dplyr::select(mcs_exp_dummy, -contains("NA"))
+```
+```{r}
+write.csv(mcs_exp_dummy, file = "/Users/zhangxinhe/Documents/who recieves a diagnosis/MCS/Suicide-exwas/mcs_exp_cleaned_NOV2023.csv")
+
+```
+
