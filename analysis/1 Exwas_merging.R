@@ -1,3 +1,4 @@
+library(readr)
 library(janitor)
 library(qgraph)
 library(psych)
