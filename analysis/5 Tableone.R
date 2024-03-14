@@ -58,7 +58,7 @@ vars = colnames(df)[-c(1,3)]
 
 ## Create TableOne
 tab <- CreateTableOne(vars = vars, data = df,  factorVars = vars[grep("age", vars, invert = T)] , strata = "SA_y_ever", addOverall = T)
-table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T)
+table1 <- print(tab, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, missing = T, pDigits = 5)
 write.csv(table1, file = "outputs/Table1.csv")
 
 # only in testing

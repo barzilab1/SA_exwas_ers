@@ -79,23 +79,5 @@ write.csv(file = paste0("outputs/exwas_results.csv"), exposome_models$results, r
 
 
 
-#### run one model that contains all selected features ####
-###!!!!!!!! we can't run all in one models. we have variables available in different timepoints so all rows have NA -> no data
-# individual_cut_off = exposome_models$results$variable[exposome_models$results$fdr <= 0.05]
-# # structural_cut_off = structural_level_models5$results[structural_level_models5$results$fdr <= 0.05, "Feature"]
-# 
-# dataset_in = merge(exposome_df, suicide_train_df)
-# # dataset_st = merge(structural_level_5, suicide_train)
-# 
-# formula_str = as.formula(paste0("SA_y ~ ", paste(individual_cut_off,collapse = " + "), " + interview_age + (interview_age)^2 + (interview_age)^3 + sex + (1 | site_id_l_br/rel_family_id/src_subject_id)"))
-# individula_mod_all_2 = glmer(formula_str, family = binomial, data = dataset_in, nAGQ = 0)
-# 
-# library(sjPlot)
-# tab_in2 = tab_model(individula_mod_all_2,show.intercept = F) 
-# tab_in2
-
-
-
-
 
 

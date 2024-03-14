@@ -139,18 +139,16 @@ stq[accounts_number] = lapply(stq[accounts_number], \(x) ifelse(x > 3, 3, x))
 
 # create dummy variable for most used social media site  
 stq <- dummy_cols(stq, "screentime_smq_use_most", ignore_na = T, remove_selected_columns = T)
-# View(stq[,grep("screentime_smq_use_most", colnames(stq))])
 
 # change scale to:  1=Public; 0=Private 
 stq$screentime_smq_account = stq$screentime_smq_account %% 2 
 
-#screentime_smq_followers and screentime_smq_following  - according to David
+# screentime_smq_followers and screentime_smq_following - based on previous work 
 stq$screentime_smq_followers = ifelse(stq$screentime_smq_followers > 5000, NA , stq$screentime_smq_followers)
 stq$screentime_smq_following = ifelse(stq$screentime_smq_following > 5000, NA , stq$screentime_smq_following)
 
 # screentime_sq: What do you usually do with your phone when you are ready to go to sleep?
 stq <- dummy_cols(stq, "screentime_sq2", ignore_na = T, remove_selected_columns = T)
-# View(stq[,grep("screentime_sq2", colnames(stq))])
 
 # View(describe(stq))
 
@@ -176,10 +174,10 @@ stq01 <- dummy_cols(stq01, "screentime_device_cell_p", ignore_na = T, remove_sel
 stq01$screentime_device_cell_age_p[stq01$screentime_device_cell_age_p > 15] = NA
 stq01$screentime_device_cell_age_p[which(stq01$screentime_device_cell_age_p*12 > stq01$interview_age)] = NA
 
-#change value range to no -> sometimes -> yes
+# change value range to no -> sometimes -> yes
 stq01$screentime_device_cell_no_p_e = round(stq01$screentime_device_cell_no_p /2 + stq01$screentime_device_cell_no_p %% 2)
 
-#Do you suspect that your child has social media accounts that you are unaware of?
+# Do you suspect that your child has social media accounts that you are unaware of?
 stq01$screentime_secs_media_p = NULL
 
 # View(describe(stq01))

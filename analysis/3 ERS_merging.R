@@ -91,20 +91,23 @@ dataset_test_imputed$ers_sensitivity_z = scale(dataset_test_imputed$ers_sensitiv
 
 
 ###############################################
-#### 3. add FH and PRS to the testing data ####
+#### 3. add FH and DV to the testing data ####
 ###############################################
 FH_suicide <- read_csv("data/family_history.csv")
 suicide_test <- read_csv("data/DV_suicide_test.csv")
 lgbt <- read_csv("data/lgbtqia.csv")
 cbcl = read_csv("data/cbcl.csv")
   
-  
+cut_off = cut_off[order(cut_off$coefficients, decreasing = T),]
+Top5_risk = cut_off$variable[1:5]
+Top5_predictive = tail(cut_off$variable, 5)
+
 dataset = merge(suicide_test, race, all.x = T)
 dataset = merge(dataset, FH_suicide[,c("src_subject_id", "famhx_ss_momdad_scd_p")], all.x = T)
 dataset = merge(dataset, lgbt[,c("src_subject_id", "eventname", "LGBT", "LGBT_inclusive")])
-# dataset = merge(dataset, genetics[,c("src_subject_id", "suicide_PRSice_Pt0_05", "genetic_afr")], all.x = T)
 dataset = merge(dataset, dataset_test_imputed[,c("src_subject_id", "eventname", "interview_age", "sex",
-                                                     "ers", "ers_z", "ers_sensitivity", "ers_sensitivity_z")] )
+                                                 "ers", "ers_z", "ers_sensitivity", "ers_sensitivity_z",
+                                                 Top5_risk, Top5_predictive)] )
 dataset = merge(dataset, cbcl[,c("src_subject_id", "eventname", "interview_age", "sex", 
                                   "cbcl_scr_syn_totprob_t", "cbcl_scr_syn_external_t")] )
 

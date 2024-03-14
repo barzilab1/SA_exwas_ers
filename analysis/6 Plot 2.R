@@ -5,6 +5,7 @@ library(ggstatsplot)
 library(ggpubr)
 library(stringr)
 library(readxl)
+library(ggrepel)
 
 source("config.R")
 
@@ -67,6 +68,14 @@ manh_plot <- ggplot(manhattan_db, aes(x = position, y = -log10(fdr), color = as.
   # add p value horizontal line 
   geom_hline(yintercept = -log10(0.05), color = "black", linetype = "dashed") + 
   
+  # add the labels
+  geom_label_repel( data=subset(manhattan_db, forest_number %in% c(1:5,95:99)), aes(label= forest_number), size = TEXT_SIZE/2,
+                    min.segment.length = unit(0, "lines"),
+                    force = 5
+                    # nudge_x = dat$nudge_x[!is.na(dat$description)],
+                    # nudge_y = dat$nudge_y[!is.na(dat$description)]
+  )+
+  
   labs(x = element_blank(), 
        y = "P-value Threshold") + 
   theme_minimal() +
@@ -77,10 +86,9 @@ manh_plot <- ggplot(manhattan_db, aes(x = position, y = -log10(fdr), color = as.
     axis.text.x = element_text(size = TEXT_SIZE, face = "bold", color = "black"),
     axis.text.y = element_text(size = TEXT_SIZE, face = "bold", color = "black"),
     axis.title.y = element_text(size = TEXT_SIZE, face = "bold", color = "black")
-  )
+  )  
 
 manh_plot
-
 
 
 ##########################
@@ -100,9 +108,10 @@ forest_plot=ggplot(forest_db, aes(y=feature, x=or, xmin=lowerci, xmax=upperci))+
   #Add data points and color them black
   geom_point(color = 'black', size = 2)+
   #add the CI error bars
-  geom_errorbarh(height=.1, size =1)+
+  geom_errorbarh(height=.1, linewidth =1)+
   #Specify the limits of the x-axis and relabel it to something more meaningful
-  scale_x_continuous( name='Odds Ratio', limits=c(0,16.5), breaks = c(0,1,seq(5,16.5, 5)))+ 
+  scale_x_continuous( name='Odds Ratio', limits=c(-0.25,16.5), breaks = c(0,1,seq(5,16.5, 5)),
+                      expand = c(0,0))+ 
   #Give y-axis a meaningful label
   ylab(" ")+ # keep space for the combined plot
   #Add a vertical dashed line indicating an effect size of 1, for reference
@@ -118,7 +127,9 @@ forest_plot=ggplot(forest_db, aes(y=feature, x=or, xmin=lowerci, xmax=upperci))+
         axis.line=element_line(),
         axis.text.x = element_text(size = TEXT_SIZE, face = "bold", color = "black"),
         axis.text.y = element_text(size = TEXT_SIZE/1.5, face = "bold", color = "black"),
-        text = element_text(color='black',size  = TEXT_SIZE, face="bold"))
+        text = element_text(color='black',size  = TEXT_SIZE, face="bold")) 
+  
+
         
 forest_plot
 
@@ -233,7 +244,10 @@ p = ggarrange(manh_plot, bottom, ncol = 1, nrow = 2, heights = c(0.75,2),
               labels = "AUTO" , font.label = list(size = TEXT_SIZE, color = "black"))
 
 
-ggsave(filename ="plots/combined_figure_2.tiff", p, width = 30, height = 35, device='tiff', dpi = 300)
+ggsave(filename ="plots/combined_figure_2.tiff", p, width = 30, height = 35, device='tiff')
+ggsave(filename ="plots/2b.tiff", forest_plot, width = 15, height = 20, device='tiff', dpi = 300)
+ggsave(filename ="plots/2a.tiff", manh_plot, width = 30, height = 12, device='tiff', dpi = 300)
+ggsave(filename ="plots/2cd.tiff", sub_groups_plot, width = 15, height = 20, device='tiff', dpi = 300)
 
 
 
